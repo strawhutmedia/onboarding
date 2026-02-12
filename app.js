@@ -6,35 +6,38 @@
   "use strict";
 
   // ---- State ----
-  let currentSection = 1;
-  const totalSections = 5;
-  let approvedCompany = "";
-  const uploadedFiles = { brand: [], inspo: [] };
-  const MAX_INSPO_FILES = 10;
+  var currentSection = 1;
+  var totalSections = 10;
+  var approvedCompany = "";
+  var uploadedFiles = { brand: [], inspo: [], logo: [], music: [] };
+  var MAX_INSPO_FILES = 10;
+  var completedSections = {};
 
   // ---- DOM refs ----
-  const gateScreen = document.getElementById("gate");
-  const onboardingScreen = document.getElementById("onboarding");
-  const checklistScreen = document.getElementById("checklist");
-  const companyInput = document.getElementById("company-name");
-  const gateError = document.getElementById("gate-error");
-  const gateSubmit = document.getElementById("gate-submit");
-  const displayCompany = document.getElementById("display-company");
-  const checklistCompany = document.getElementById("checklist-company");
-  const form = document.getElementById("onboarding-form");
-  const prevBtn = document.getElementById("prev-btn");
-  const nextBtn = document.getElementById("next-btn");
-  const submitBtn = document.getElementById("submit-btn");
-  const progressFill = document.getElementById("form-progress");
-  const progressLabel = document.getElementById("progress-label");
-  const formSummary = document.getElementById("form-summary");
+  var gateScreen = document.getElementById("gate");
+  var onboardingScreen = document.getElementById("onboarding");
+  var successScreen = document.getElementById("success");
+  var companyInput = document.getElementById("company-name");
+  var gateError = document.getElementById("gate-error");
+  var gateSubmit = document.getElementById("gate-submit");
+  var displayCompany = document.getElementById("display-company");
+  var displayCompanyMobile = document.getElementById("display-company-mobile");
+  var form = document.getElementById("onboarding-form");
+  var prevBtn = document.getElementById("prev-btn");
+  var nextBtn = document.getElementById("next-btn");
+  var submitBtn = document.getElementById("submit-btn");
+  var progressFill = document.getElementById("form-progress");
+  var progressLabel = document.getElementById("progress-label");
+  var sidebarProgressFill = document.getElementById("sidebar-progress-fill");
+  var sidebarProgressText = document.getElementById("sidebar-progress-text");
+  var formSummary = document.getElementById("form-summary");
 
   // ---- Helpers ----
   function show(el) { el.classList.remove("hidden"); }
   function hide(el) { el.classList.add("hidden"); }
 
   function switchScreen(target) {
-    [gateScreen, onboardingScreen, checklistScreen].forEach(function (s) {
+    [gateScreen, onboardingScreen, successScreen].forEach(function (s) {
       s.classList.remove("active");
     });
     target.classList.add("active");
@@ -60,9 +63,10 @@
       approvedCompany = name;
       hide(gateError);
       displayCompany.textContent = approvedCompany;
-      checklistCompany.textContent = approvedCompany;
+      displayCompanyMobile.textContent = approvedCompany;
       switchScreen(onboardingScreen);
       updateProgress();
+      updateSidebar();
     } else {
       show(gateError);
     }
@@ -74,6 +78,19 @@
   companyInput.addEventListener("input", function () {
     hide(gateError);
     companyInput.classList.remove("input-error");
+  });
+
+  // ---- Sidebar navigation (click to jump) ----
+  var sidebarItems = document.querySelectorAll(".sidebar-checklist li");
+  sidebarItems.forEach(function (li) {
+    li.addEventListener("click", function () {
+      var sectionNum = parseInt(li.dataset.sidebar);
+      if (sectionNum && sectionNum !== currentSection) {
+        // Mark current section as completed if it has content
+        checkSectionCompletion(currentSection);
+        showSection(sectionNum);
+      }
+    });
   });
 
   // ---- Multi-step form navigation ----
@@ -95,6 +112,7 @@
       hide(submitBtn);
     }
     updateProgress();
+    updateSidebar();
     window.scrollTo(0, 0);
   }
 
@@ -102,7 +120,86 @@
     var pct = ((currentSection - 1) / (totalSections - 1)) * 100;
     progressFill.style.width = pct + "%";
     progressLabel.textContent = "Section " + currentSection + " of " + totalSections;
+
+    // Sidebar progress based on completed sections
+    var completedCount = Object.keys(completedSections).length;
+    var sidebarPct = Math.round((completedCount / totalSections) * 100);
+    sidebarProgressFill.style.width = sidebarPct + "%";
+    sidebarProgressText.textContent = sidebarPct + "% complete";
   }
+
+  function updateSidebar() {
+    sidebarItems.forEach(function (li) {
+      var num = parseInt(li.dataset.sidebar);
+      li.classList.remove("active");
+      if (num === currentSection) {
+        li.classList.add("active");
+      }
+      if (completedSections[num]) {
+        li.classList.add("completed");
+      } else {
+        li.classList.remove("completed");
+      }
+    });
+  }
+
+  // ---- Section completion checking ----
+  // Check if a section has any meaningful content filled in
+  function checkSectionCompletion(sectionNum) {
+    var section = document.querySelector('.form-section[data-section="' + sectionNum + '"]');
+    if (!section) return;
+
+    var hasContent = false;
+
+    // Check text inputs, emails, urls, dates
+    var textInputs = section.querySelectorAll('input[type="text"], input[type="email"], input[type="url"], input[type="date"], textarea');
+    textInputs.forEach(function (input) {
+      if (input.value.trim()) hasContent = true;
+    });
+
+    // Check radio buttons
+    var radioGroups = {};
+    var radios = section.querySelectorAll('input[type="radio"]');
+    radios.forEach(function (r) {
+      if (!radioGroups[r.name]) radioGroups[r.name] = false;
+      if (r.checked) radioGroups[r.name] = true;
+    });
+    Object.keys(radioGroups).forEach(function (name) {
+      if (radioGroups[name]) hasContent = true;
+    });
+
+    // Check checkboxes (non-confirm)
+    var checkboxes = section.querySelectorAll('input[type="checkbox"]:not(#confirm-submit)');
+    checkboxes.forEach(function (cb) {
+      if (cb.checked) hasContent = true;
+    });
+
+    // Check selects
+    var selects = section.querySelectorAll("select");
+    selects.forEach(function (sel) {
+      if (sel.value) hasContent = true;
+    });
+
+    // Check file uploads related to this section
+    if (sectionNum === 3 && (uploadedFiles.brand.length > 0 || uploadedFiles.logo.length > 0)) hasContent = true;
+    if (sectionNum === 4 && uploadedFiles.inspo.length > 0) hasContent = true;
+    if (sectionNum === 5 && uploadedFiles.music.length > 0) hasContent = true;
+
+    if (hasContent) {
+      completedSections[sectionNum] = true;
+    }
+
+    updateProgress();
+    updateSidebar();
+  }
+
+  // Listen for any input changes to auto-check completion
+  form.addEventListener("input", function () {
+    checkSectionCompletion(currentSection);
+  });
+  form.addEventListener("change", function () {
+    checkSectionCompletion(currentSection);
+  });
 
   function validateCurrentSection() {
     var section = document.querySelector('.form-section[data-section="' + currentSection + '"]');
@@ -114,9 +211,15 @@
         var checked = Array.prototype.some.call(group, function (r) { return r.checked; });
         if (!checked) {
           valid = false;
-          group.forEach(function (r) { r.closest(".radio-label").style.outline = "1px solid var(--color-error)"; });
+          group.forEach(function (r) {
+            var label = r.closest(".radio-label");
+            if (label) label.style.outline = "1px solid var(--color-error)";
+          });
         } else {
-          group.forEach(function (r) { r.closest(".radio-label").style.outline = "none"; });
+          group.forEach(function (r) {
+            var label = r.closest(".radio-label");
+            if (label) label.style.outline = "none";
+          });
         }
       } else {
         if (!input.value.trim()) {
@@ -132,10 +235,12 @@
 
   nextBtn.addEventListener("click", function () {
     if (!validateCurrentSection()) return;
+    checkSectionCompletion(currentSection);
     if (currentSection < totalSections) showSection(currentSection + 1);
   });
 
   prevBtn.addEventListener("click", function () {
+    checkSectionCompletion(currentSection);
     if (currentSection > 1) showSection(currentSection - 1);
   });
 
@@ -161,9 +266,17 @@
     });
   });
 
+  document.querySelectorAll('input[name="needsMusic"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      var upload = document.getElementById("existing-music-upload");
+      if (r.value === "have-some" && r.checked) show(upload); else hide(upload);
+    });
+  });
+
   // ---- File uploads ----
   function setupFileUpload(inputId, listId, storageKey, maxFiles) {
     var input = document.getElementById(inputId);
+    if (!input) return;
     var list = document.getElementById(listId);
     var dropZone = input.closest(".file-upload-area");
 
@@ -182,6 +295,7 @@
           e.stopPropagation();
           uploadedFiles[storageKey].splice(parseInt(btn.dataset.idx), 1);
           renderList();
+          checkSectionCompletion(currentSection);
         });
       });
     }
@@ -196,6 +310,7 @@
         uploadedFiles[storageKey].push(files[i]);
       }
       renderList();
+      checkSectionCompletion(currentSection);
     }
 
     input.addEventListener("change", function () {
@@ -218,25 +333,40 @@
   }
 
   setupFileUpload("brand-guidelines-file", "brand-file-list", "brand", null);
+  setupFileUpload("brand-logos-file", "logo-file-list", "logo", null);
   setupFileUpload("inspiration-files", "inspo-file-list", "inspo", MAX_INSPO_FILES);
+  setupFileUpload("music-files", "music-file-list", "music", null);
 
   // ---- Summary builder ----
   function buildSummary() {
     var data = getFormData();
     var html = "";
 
+    // Contact
+    html += '<h4>Contact Information</h4><dl>';
+    html += row("Name", (data.contactFirstName || "") + " " + (data.contactLastName || ""));
+    html += row("Email", data.contactEmail || "—");
+    html += row("Phone", data.contactPhone || "—");
+    html += row("Role", data.contactRole || "—");
+    html += row("Timezone", data.contactTimezone || "—");
+    html += row("Preferred Contact", data.preferredContact || "—");
+    html += "</dl>";
+
+    // Podcast Basics
     html += '<h4>Podcast Basics</h4><dl>';
-    html += row("Podcast Name", data.podcastName);
-    html += row("Description", data.podcastDescription);
-    html += row("Status", data.podcastStatus === "new" ? "New podcast from scratch" : "Taking over existing podcast");
-    html += row("Brand", data.brandStatus === "existing" ? "Existing brand" : "New brand");
+    html += row("Podcast Name", data.podcastName || "—");
+    html += row("Description", data.podcastDescription || "—");
+    html += row("Status", data.podcastStatus === "new" ? "New podcast" : data.podcastStatus === "takeover" ? "Taking over existing" : "—");
+    html += row("Brand", data.brandStatus === "existing" ? "Existing brand" : data.brandStatus === "new" ? "New brand" : "—");
     if (data.podcastStatus === "takeover") {
       html += row("Existing URL", data.existingPodcastUrl || "—");
     }
     html += row("Genre", data.podcastGenre || "—");
+    html += row("Format", data.podcastFormat || "—");
     html += row("Target Audience", data.targetAudience || "—");
     html += "</dl>";
 
+    // Branding
     html += '<h4>Branding</h4><dl>';
     var guidelineLabels = { yes: "Yes", no: "Need creation", partial: "Partial" };
     html += row("Has Guidelines", guidelineLabels[data.hasBrandGuidelines] || "—");
@@ -246,8 +376,12 @@
     if (uploadedFiles.brand.length) {
       html += row("Guideline Files", uploadedFiles.brand.map(function (f) { return escapeHtml(f.name); }).join(", "));
     }
+    if (uploadedFiles.logo.length) {
+      html += row("Logo Files", uploadedFiles.logo.map(function (f) { return escapeHtml(f.name); }).join(", "));
+    }
     html += "</dl>";
 
+    // Inspiration
     html += '<h4>Inspiration</h4><dl>';
     if (uploadedFiles.inspo.length) {
       html += row("Images", uploadedFiles.inspo.map(function (f) { return escapeHtml(f.name); }).join(", "));
@@ -257,6 +391,34 @@
     html += row("Visual Notes", data.inspoNotes || "—");
     html += "</dl>";
 
+    // Music & Audio
+    html += '<h4>Music &amp; Audio</h4><dl>';
+    var musicLabels = { yes: "Create from scratch", "have-some": "Have some music", no: "Handle separately", undecided: "TBD" };
+    html += row("Needs Music", musicLabels[data.needsMusic] || "—");
+    html += row("Music Vibe", data.musicVibe || "—");
+    html += row("Music References", data.musicReferences || "—");
+    var sfxLabels = { yes: "Yes", minimal: "Minimal", no: "No", undecided: "TBD" };
+    html += row("Sound Effects", sfxLabels[data.wantsSFX] || "—");
+    if (uploadedFiles.music.length) {
+      html += row("Audio Files", uploadedFiles.music.map(function (f) { return escapeHtml(f.name); }).join(", "));
+    }
+    html += "</dl>";
+
+    // Social Media
+    html += '<h4>Social Media &amp; Web</h4><dl>';
+    html += row("Website", data.socialWebsite || "—");
+    html += row("Instagram", data.socialInstagram || "—");
+    html += row("X (Twitter)", data.socialTwitter || "—");
+    html += row("TikTok", data.socialTiktok || "—");
+    html += row("YouTube", data.socialYoutube || "—");
+    html += row("LinkedIn", data.socialLinkedin || "—");
+    var socialLabels = { yes: "Full management", partial: "Create content only", no: "Handle ourselves" };
+    html += row("Social Mgmt", socialLabels[data.manageSocial] || "—");
+    var clipLabels = { yes: "Yes", no: "No", undecided: "TBD" };
+    html += row("Short-form Clips", clipLabels[data.wantsClips] || "—");
+    html += "</dl>";
+
+    // Recording & Logistics
     html += '<h4>Recording &amp; Logistics</h4><dl>';
     var locLabels = { studio: "Straw Hut Studio", virtual: "Virtual / Remote", "client-location": "Client location", undecided: "TBD" };
     html += row("Location", locLabels[data.recordingLocation] || "—");
@@ -268,7 +430,32 @@
     html += row("Host(s)", data.hostsInfo || "—");
     var guestLabels = { yes: "Yes, regularly", sometimes: "Sometimes", no: "No", undecided: "TBD" };
     html += row("Guests", guestLabels[data.hasGuests] || "—");
+    var videoLabels = { yes: "Audio + Video", "audio-only": "Audio only", undecided: "TBD" };
+    html += row("Video", videoLabels[data.isVideo] || "—");
     html += row("Launch Date", data.launchDate || "—");
+    html += "</dl>";
+
+    // Distribution & Monetization
+    html += '<h4>Distribution &amp; Monetization</h4><dl>';
+    var platforms = getCheckedValues("platforms");
+    html += row("Platforms", platforms.length ? platforms.join(", ") : "—");
+    var monLabels = { yes: "Help find sponsors", self: "Own sponsors", later: "Maybe later", no: "Not a goal" };
+    html += row("Monetization", monLabels[data.wantsMonetization] || "—");
+    html += row("Monetization Notes", data.monetizationNotes || "—");
+    var webLabels = { yes: "Build one", "have-one": "Already have one", no: "No" };
+    html += row("Podcast Website", webLabels[data.wantsWebsite] || "—");
+    html += "</dl>";
+
+    // Marketing & Launch
+    html += '<h4>Marketing &amp; Launch</h4><dl>';
+    var epLabels = { "1": "1 episode", "3": "3 episodes", "5+": "5+ episodes", undecided: "TBD" };
+    html += row("Launch Episodes", epLabels[data.launchEpisodes] || "—");
+    var trailerLabels = { yes: "Create one", "have-one": "Already have one", no: "None" };
+    html += row("Trailer", trailerLabels[data.wantsTrailer] || "—");
+    var pressLabels = { yes: "Yes", no: "No", undecided: "TBD" };
+    html += row("Press Kit", pressLabels[data.wantsPressKit] || "—");
+    html += row("Marketing Notes", data.marketingNotes || "—");
+    html += row("Goals", data.goals || "—");
     html += "</dl>";
 
     formSummary.innerHTML = html;
@@ -287,12 +474,24 @@
       if (el.type === "radio") {
         if (el.checked) data[el.name] = el.value;
       } else if (el.type === "checkbox") {
-        data[el.name] = el.checked;
+        // Skip platform checkboxes (handled separately)
+        if (el.name !== "platforms") {
+          data[el.name] = el.checked;
+        }
       } else if (el.type !== "file") {
         data[el.name] = el.value;
       }
     }
     return data;
+  }
+
+  function getCheckedValues(name) {
+    var values = [];
+    var checkboxes = form.querySelectorAll('input[name="' + name + '"]');
+    checkboxes.forEach(function (cb) {
+      if (cb.checked) values.push(cb.value);
+    });
+    return values;
   }
 
   // ---- Submit ----
@@ -305,26 +504,29 @@
     }
     confirmBox.closest(".checkbox-label").style.outline = "none";
 
+    // Mark all sections as completed
+    for (var i = 1; i <= totalSections; i++) {
+      completedSections[i] = true;
+    }
+    updateSidebar();
+    updateProgress();
+
     var data = getFormData();
     data.company = approvedCompany;
     data.submittedAt = new Date().toISOString();
+    data.platforms = getCheckedValues("platforms");
     data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
+    data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
     data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
+    data.musicFiles = uploadedFiles.music.map(function (f) { return f.name; });
 
     // In production, POST this to your backend. For now, log it.
     console.log("=== ONBOARDING SUBMISSION ===");
     console.log(JSON.stringify(data, null, 2));
 
-    // Mark brainstorm meeting as the active first step
-    switchScreen(checklistScreen);
-    activateFirstTask();
+    // Show success screen
+    switchScreen(successScreen);
   });
-
-  // ---- Checklist ----
-  function activateFirstTask() {
-    var first = document.querySelector('.checklist-items li[data-task="brainstorm-meeting"]');
-    if (first) first.classList.add("active");
-  }
 
   // ---- Utils ----
   function escapeHtml(str) {
