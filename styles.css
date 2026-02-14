@@ -86,11 +86,10 @@ body {
 .logo-img.sm {
   height: 28px;
 }
-.logo-img.inverted {
-  filter: invert(1) brightness(2);
-}
-.logo-img.on-white {
-  filter: none;
+.logo-img.on-dark-bg {
+  background: var(--navy);
+  border-radius: 6px;
+  padding: 6px 10px;
 }
 
 /* ============================================
