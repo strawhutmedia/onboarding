@@ -405,6 +405,7 @@ body {
 
 /* Inputs — white background */
 input[type="text"],
+input[type="password"],
 input[type="url"],
 input[type="date"],
 input[type="email"],
@@ -442,6 +443,7 @@ select {
 
 /* Gate screen inputs (dark text on white card) */
 .gate-card input[type="text"],
+.gate-card input[type="password"],
 .gate-card textarea,
 .gate-card select {
   border: 2px solid var(--gray-200);

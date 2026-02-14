@@ -326,6 +326,80 @@
   color: #dc2626;
 }
 
+/* ---- Editable submission fields ---- */
+.sub-fields-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sub-field-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.sub-field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-500);
+  padding-top: 8px;
+}
+.sub-field-input {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  transition: border-color 0.15s ease;
+  outline: none;
+}
+.sub-field-input:focus {
+  border-color: var(--green);
+  background: var(--white);
+}
+textarea.sub-field-input {
+  resize: vertical;
+  min-height: 40px;
+}
+
+/* ---- Status messages ---- */
+.submission-status {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.status-msg-success {
+  background: rgba(45, 212, 160, 0.12);
+  color: #16a085;
+}
+.status-msg-error {
+  background: rgba(248, 113, 113, 0.12);
+  color: #c53030;
+}
+.status-msg-info {
+  background: rgba(96, 165, 250, 0.12);
+  color: #2563eb;
+}
+
+/* Save and resend buttons */
+.submission-actions .btn.primary.btn-sm {
+  font-size: 12px;
+  padding: 6px 16px;
+}
+.submission-actions .resend-sub {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+.submission-actions .resend-sub:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: #2563eb;
+}
+
 /* ---- Empty state ---- */
 .empty-state {
   text-align: center;
@@ -371,6 +445,14 @@
   }
   .sub-fields dt {
     margin-top: 8px;
+    font-weight: 600;
+  }
+  .sub-field-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .sub-field-label {
+    padding-top: 4px;
     font-weight: 600;
   }
 }

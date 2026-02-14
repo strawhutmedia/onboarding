@@ -245,10 +245,13 @@
           '</div>' +
         '</div>' +
         '<div class="submission-details hidden" id="sub-details-' + idx + '">' +
-          buildSubmissionDetails(sub) +
+          buildSubmissionDetails(sub, idx) +
           '<div class="submission-actions">' +
+            '<button class="btn primary btn-sm save-sub" data-idx="' + idx + '">Save Changes</button>' +
+            '<button class="btn secondary btn-sm resend-sub" data-idx="' + idx + '">Resend Email</button>' +
             '<button class="btn secondary btn-sm delete-sub" data-idx="' + idx + '">Delete</button>' +
           '</div>' +
+          '<div class="submission-status hidden" id="sub-status-' + idx + '"></div>' +
         '</div>';
 
       submissionsList.appendChild(card);
@@ -270,6 +273,26 @@
       });
     });
 
+    // Save buttons
+    submissionsList.querySelectorAll(".save-sub").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var idx = parseInt(btn.dataset.idx);
+        saveSubmissionEdits(idx);
+      });
+    });
+
+    // Resend email buttons
+    submissionsList.querySelectorAll(".resend-sub").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var idx = parseInt(btn.dataset.idx);
+        // Save first, then resend
+        saveSubmissionEdits(idx);
+        resendEmail(idx);
+      });
+    });
+
     // Delete buttons
     submissionsList.querySelectorAll(".delete-sub").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
@@ -287,6 +310,141 @@
     });
   }
 
+  // ---- Save edits from inline fields ----
+  function saveSubmissionEdits(idx) {
+    var subs = getSubmissions();
+    subs.sort(function (a, b) {
+      return new Date(b.submittedAt) - new Date(a.submittedAt);
+    });
+
+    var container = document.getElementById("sub-details-" + idx);
+    var inputs = container.querySelectorAll("[data-field]");
+    inputs.forEach(function (input) {
+      var key = input.dataset.field;
+      subs[idx][key] = input.value;
+    });
+
+    saveSubmissions(subs);
+    showStatus(idx, "Changes saved.", "success");
+  }
+
+  // ---- Resend email notification ----
+  function resendEmail(idx) {
+    var subs = getSubmissions();
+    subs.sort(function (a, b) {
+      return new Date(b.submittedAt) - new Date(a.submittedAt);
+    });
+    var data = subs[idx];
+
+    var notifyEl = document.getElementById("notify-email");
+    var email = notifyEl ? notifyEl.textContent : "onboarding@strawhutmedia.com";
+    var endpoint = "https://formsubmit.co/ajax/" + email;
+
+    var body = "PODCAST ONBOARDING SUBMISSION (Resent from Admin)\n";
+    body += "Company: " + (data.company || "Unknown") + "\n";
+    body += "Originally Submitted: " + (data.submittedAt ? new Date(data.submittedAt).toLocaleString() : "Unknown") + "\n\n";
+
+    body += "--- CONTACT INFORMATION ---\n";
+    body += "Name: " + (data.contactFirstName || "") + " " + (data.contactLastName || "") + "\n";
+    body += "Email: " + (data.contactEmail || "Not provided") + "\n";
+    body += "Phone: " + (data.contactPhone || "Not provided") + "\n";
+    body += "Role: " + (data.contactRole || "Not provided") + "\n";
+    body += "Timezone: " + (data.contactTimezone || "Not provided") + "\n";
+    body += "Preferred Contact: " + (data.preferredContact || "Not provided") + "\n\n";
+
+    body += "--- PODCAST BASICS ---\n";
+    body += "Podcast Name: " + (data.podcastName || "Not provided") + "\n";
+    body += "Description: " + (data.podcastDescription || "Not provided") + "\n";
+    body += "Status: " + (data.podcastStatus || "Not provided") + "\n";
+    body += "Brand Status: " + (data.brandStatus || "Not provided") + "\n";
+    body += "Genre: " + (data.podcastGenre || "Not provided") + "\n";
+    body += "Format: " + (data.podcastFormat || "Not provided") + "\n";
+    body += "Target Audience: " + (data.targetAudience || "Not provided") + "\n\n";
+
+    body += "--- BRANDING ---\n";
+    body += "Has Guidelines: " + (data.hasBrandGuidelines || "Not provided") + "\n";
+    body += "Brand Colors: " + (data.brandColors || "Not provided") + "\n";
+    body += "Fonts: " + (data.brandFonts || "Not provided") + "\n";
+    body += "Voice/Tone: " + (data.brandVoice || "Not provided") + "\n\n";
+
+    body += "--- INSPIRATION ---\n";
+    body += "Podcasts Admired: " + (data.inspoPodcasts || "Not provided") + "\n";
+    body += "Brands Admired: " + (data.inspoBrands || "Not provided") + "\n";
+    body += "Visual Notes: " + (data.inspoNotes || "Not provided") + "\n\n";
+
+    body += "--- MUSIC & AUDIO ---\n";
+    body += "Needs Music: " + (data.needsMusic || "Not provided") + "\n";
+    body += "Music Vibe: " + (data.musicVibe || "Not provided") + "\n";
+    body += "Music References: " + (data.musicReferences || "Not provided") + "\n";
+    body += "Sound Effects: " + (data.wantsSFX || "Not provided") + "\n\n";
+
+    body += "--- SOCIAL MEDIA & WEB ---\n";
+    body += "Website: " + (data.socialWebsite || "Not provided") + "\n";
+    body += "Instagram: " + (data.socialInstagram || "Not provided") + "\n";
+    body += "X (Twitter): " + (data.socialTwitter || "Not provided") + "\n";
+    body += "TikTok: " + (data.socialTiktok || "Not provided") + "\n";
+    body += "YouTube: " + (data.socialYoutube || "Not provided") + "\n";
+    body += "LinkedIn: " + (data.socialLinkedin || "Not provided") + "\n";
+    body += "Social Management: " + (data.manageSocial || "Not provided") + "\n";
+    body += "Short-form Clips: " + (data.wantsClips || "Not provided") + "\n\n";
+
+    body += "--- RECORDING & LOGISTICS ---\n";
+    body += "Location: " + (data.recordingLocation || "Not provided") + "\n";
+    if (data.locationAddress) body += "Address: " + data.locationAddress + "\n";
+    body += "Frequency: " + (data.episodeFrequency || "Not provided") + "\n";
+    body += "Episode Length: " + (data.episodeLength || "Not provided") + "\n";
+    body += "Host(s): " + (data.hostsInfo || "Not provided") + "\n";
+    body += "Guests: " + (data.hasGuests || "Not provided") + "\n";
+    body += "Video: " + (data.isVideo || "Not provided") + "\n";
+    body += "Launch Date: " + (data.launchDate || "Not provided") + "\n\n";
+
+    body += "--- MARKETING & LAUNCH ---\n";
+    body += "Launch Episodes: " + (data.launchEpisodes || "Not provided") + "\n";
+    body += "Teaser Ideas: " + (data.teaserIdeas || "Not provided") + "\n";
+    body += "Marketing Notes: " + (data.marketingNotes || "Not provided") + "\n";
+    body += "Goals: " + (data.goals || "Not provided") + "\n\n";
+
+    body += "--- ADDITIONAL ---\n";
+    body += "Anything Else: " + (data.anythingElse || "Not provided") + "\n";
+
+    var formData = new FormData();
+    formData.append("_subject", "Onboarding (Resent): " + (data.company || "Unknown Company") + " — " + (data.podcastName || "Unnamed Podcast"));
+    formData.append("Company", data.company || "");
+    formData.append("Contact", (data.contactFirstName || "") + " " + (data.contactLastName || ""));
+    formData.append("Email", data.contactEmail || "");
+    formData.append("Phone", data.contactPhone || "");
+    formData.append("Podcast Name", data.podcastName || "");
+    formData.append("message", body);
+    formData.append("_template", "box");
+
+    showStatus(idx, "Sending email...", "info");
+
+    fetch(endpoint, {
+      method: "POST",
+      body: formData,
+      headers: { "Accept": "application/json" }
+    }).then(function (res) {
+      if (res.ok) {
+        showStatus(idx, "Email sent successfully.", "success");
+      } else {
+        showStatus(idx, "Email failed (status " + res.status + "). Check the email address.", "error");
+      }
+    }).catch(function (err) {
+      showStatus(idx, "Email error: " + err.message, "error");
+    });
+  }
+
+  function showStatus(idx, message, type) {
+    var el = document.getElementById("sub-status-" + idx);
+    if (!el) return;
+    el.textContent = message;
+    el.className = "submission-status status-msg-" + type;
+    el.classList.remove("hidden");
+    if (type === "success") {
+      setTimeout(function () { el.classList.add("hidden"); }, 3000);
+    }
+  }
+
   function calcCompleteness(sub) {
     var fields = [
       sub.contactFirstName, sub.contactLastName, sub.contactEmail,
@@ -299,8 +457,7 @@
       sub.socialWebsite, sub.socialInstagram,
       sub.recordingLocation, sub.episodeFrequency, sub.episodeLength, sub.hostsInfo,
       sub.hasGuests, sub.isVideo,
-      sub.wantsMonetization,
-      sub.launchEpisodes, sub.wantsTrailer,
+      sub.launchEpisodes, sub.teaserIdeas,
       sub.goals
     ];
     var filled = 0;
@@ -310,94 +467,81 @@
     return Math.round((filled / fields.length) * 100);
   }
 
-  function buildSubmissionDetails(sub) {
+  function buildSubmissionDetails(sub, idx) {
     var html = '<div class="sub-detail-grid">';
 
     html += sectionBlock("Contact Information", [
-      ["Name", (sub.contactFirstName || "") + " " + (sub.contactLastName || "")],
-      ["Email", sub.contactEmail],
-      ["Phone", sub.contactPhone],
-      ["Role", sub.contactRole],
-      ["Timezone", sub.contactTimezone],
-      ["Preferred Contact", sub.preferredContact]
+      ["First Name", "contactFirstName", sub.contactFirstName],
+      ["Last Name", "contactLastName", sub.contactLastName],
+      ["Email", "contactEmail", sub.contactEmail],
+      ["Phone", "contactPhone", sub.contactPhone],
+      ["Role", "contactRole", sub.contactRole],
+      ["Timezone", "contactTimezone", sub.contactTimezone],
+      ["Preferred Contact", "preferredContact", sub.preferredContact]
     ]);
 
     html += sectionBlock("Podcast Basics", [
-      ["Podcast Name", sub.podcastName],
-      ["Description", sub.podcastDescription],
-      ["Status", sub.podcastStatus],
-      ["Brand Status", sub.brandStatus],
-      ["Genre", sub.podcastGenre],
-      ["Format", sub.podcastFormat],
-      ["Target Audience", sub.targetAudience]
+      ["Podcast Name", "podcastName", sub.podcastName],
+      ["Description", "podcastDescription", sub.podcastDescription, true],
+      ["Status", "podcastStatus", sub.podcastStatus],
+      ["Brand Status", "brandStatus", sub.brandStatus],
+      ["Genre", "podcastGenre", sub.podcastGenre],
+      ["Format", "podcastFormat", sub.podcastFormat],
+      ["Target Audience", "targetAudience", sub.targetAudience, true]
     ]);
 
     html += sectionBlock("Branding", [
-      ["Has Guidelines", sub.hasBrandGuidelines],
-      ["Brand Colors", sub.brandColors],
-      ["Fonts", sub.brandFonts],
-      ["Voice / Tone", sub.brandVoice],
-      ["Brand Files", sub.brandFiles && sub.brandFiles.length ? sub.brandFiles.join(", ") : null],
-      ["Logo Files", sub.logoFiles && sub.logoFiles.length ? sub.logoFiles.join(", ") : null]
+      ["Has Guidelines", "hasBrandGuidelines", sub.hasBrandGuidelines],
+      ["Brand Colors", "brandColors", sub.brandColors],
+      ["Fonts", "brandFonts", sub.brandFonts],
+      ["Voice / Tone", "brandVoice", sub.brandVoice, true]
     ]);
 
     html += sectionBlock("Inspiration", [
-      ["Podcasts Admired", sub.inspoPodcasts],
-      ["Brands Admired", sub.inspoBrands],
-      ["Visual Notes", sub.inspoNotes],
-      ["Inspiration Files", sub.inspoFiles && sub.inspoFiles.length ? sub.inspoFiles.join(", ") : null]
+      ["Podcasts Admired", "inspoPodcasts", sub.inspoPodcasts, true],
+      ["Brands Admired", "inspoBrands", sub.inspoBrands, true],
+      ["Visual Notes", "inspoNotes", sub.inspoNotes, true]
     ]);
 
     html += sectionBlock("Music & Audio", [
-      ["Needs Music", sub.needsMusic],
-      ["Music Vibe", sub.musicVibe],
-      ["Music References", sub.musicReferences],
-      ["Sound Effects", sub.wantsSFX],
-      ["Music Files", sub.musicFiles && sub.musicFiles.length ? sub.musicFiles.join(", ") : null]
+      ["Needs Music", "needsMusic", sub.needsMusic],
+      ["Music Vibe", "musicVibe", sub.musicVibe, true],
+      ["Music References", "musicReferences", sub.musicReferences, true],
+      ["Sound Effects", "wantsSFX", sub.wantsSFX]
     ]);
 
     html += sectionBlock("Social Media & Web", [
-      ["Website", sub.socialWebsite],
-      ["Instagram", sub.socialInstagram],
-      ["X (Twitter)", sub.socialTwitter],
-      ["TikTok", sub.socialTiktok],
-      ["YouTube", sub.socialYoutube],
-      ["LinkedIn", sub.socialLinkedin],
-      ["Social Management", sub.manageSocial],
-      ["Short-form Clips", sub.wantsClips]
+      ["Website", "socialWebsite", sub.socialWebsite],
+      ["Instagram", "socialInstagram", sub.socialInstagram],
+      ["X (Twitter)", "socialTwitter", sub.socialTwitter],
+      ["TikTok", "socialTiktok", sub.socialTiktok],
+      ["YouTube", "socialYoutube", sub.socialYoutube],
+      ["LinkedIn", "socialLinkedin", sub.socialLinkedin],
+      ["Social Management", "manageSocial", sub.manageSocial],
+      ["Short-form Clips", "wantsClips", sub.wantsClips]
     ]);
 
     html += sectionBlock("Recording & Logistics", [
-      ["Location", sub.recordingLocation],
-      ["Address", sub.locationAddress],
-      ["Frequency", sub.episodeFrequency],
-      ["Episode Length", sub.episodeLength],
-      ["Host(s)", sub.hostsInfo],
-      ["Guests", sub.hasGuests],
-      ["Video", sub.isVideo],
-      ["Launch Date", sub.launchDate]
-    ]);
-
-    html += sectionBlock("Distribution & Monetization", [
-      ["Platforms", sub.platforms && sub.platforms.length ? sub.platforms.join(", ") : null],
-      ["Monetization", sub.wantsMonetization],
-      ["Monetization Notes", sub.monetizationNotes],
-      ["Podcast Website", sub.wantsWebsite]
+      ["Location", "recordingLocation", sub.recordingLocation],
+      ["Address", "locationAddress", sub.locationAddress],
+      ["Frequency", "episodeFrequency", sub.episodeFrequency],
+      ["Episode Length", "episodeLength", sub.episodeLength],
+      ["Host(s)", "hostsInfo", sub.hostsInfo, true],
+      ["Guests", "hasGuests", sub.hasGuests],
+      ["Video", "isVideo", sub.isVideo],
+      ["Launch Date", "launchDate", sub.launchDate]
     ]);
 
     html += sectionBlock("Marketing & Launch", [
-      ["Launch Episodes", sub.launchEpisodes],
-      ["Trailer", sub.wantsTrailer],
-      ["Press Kit", sub.wantsPressKit],
-      ["Marketing Notes", sub.marketingNotes],
-      ["Goals", sub.goals]
+      ["Launch Episodes", "launchEpisodes", sub.launchEpisodes],
+      ["Teaser Ideas", "teaserIdeas", sub.teaserIdeas, true],
+      ["Marketing Notes", "marketingNotes", sub.marketingNotes, true],
+      ["Goals", "goals", sub.goals, true]
     ]);
 
-    if (sub.anythingElse) {
-      html += sectionBlock("Additional Notes", [
-        ["Notes", sub.anythingElse]
-      ]);
-    }
+    html += sectionBlock("Additional Notes", [
+      ["Notes", "anythingElse", sub.anythingElse, true]
+    ]);
 
     html += '</div>';
     return html;
@@ -406,16 +550,23 @@
   function sectionBlock(title, fields) {
     var html = '<div class="sub-section">';
     html += '<h4 class="sub-section-title">' + escapeHtml(title) + '</h4>';
-    html += '<dl class="sub-fields">';
-    fields.forEach(function (pair) {
-      var label = pair[0];
-      var value = pair[1];
-      var hasValue = value && value.toString().trim();
-      html += '<dt>' + escapeHtml(label) + '</dt>';
-      html += '<dd class="' + (hasValue ? '' : 'missing') + '">' +
-        (hasValue ? escapeHtml(value.toString()) : 'Not provided') + '</dd>';
+    html += '<div class="sub-fields-edit">';
+    fields.forEach(function (field) {
+      var label = field[0];
+      var key = field[1];
+      var value = field[2];
+      var isTextarea = field[3] || false;
+      var safeValue = value ? escapeHtml(value.toString()) : '';
+      html += '<div class="sub-field-row">';
+      html += '<label class="sub-field-label">' + escapeHtml(label) + '</label>';
+      if (isTextarea) {
+        html += '<textarea class="sub-field-input" data-field="' + key + '" rows="2">' + safeValue + '</textarea>';
+      } else {
+        html += '<input type="text" class="sub-field-input" data-field="' + key + '" value="' + safeValue + '">';
+      }
+      html += '</div>';
     });
-    html += '</dl></div>';
+    html += '</div></div>';
     return html;
   }
 

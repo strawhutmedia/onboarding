@@ -83,13 +83,9 @@
             </li>
             <li data-sidebar="8">
               <span class="sidebar-check"></span>
-              <span class="sidebar-label">Distribution &amp; Monetization</span>
-            </li>
-            <li data-sidebar="9">
-              <span class="sidebar-check"></span>
               <span class="sidebar-label">Marketing &amp; Launch</span>
             </li>
-            <li data-sidebar="10">
+            <li data-sidebar="9">
               <span class="sidebar-check"></span>
               <span class="sidebar-label">Review &amp; Submit</span>
             </li>
@@ -119,7 +115,7 @@
               <div class="progress-track">
                 <div id="form-progress" class="progress-fill" style="width: 0%"></div>
               </div>
-              <span id="progress-label">Section 1 of 10</span>
+              <span id="progress-label">Section 1 of 9</span>
             </div>
           </div>
 
@@ -175,10 +171,10 @@
                     <input type="radio" name="preferredContact" value="email" required> Email
                   </label>
                   <label class="radio-label">
-                    <input type="radio" name="preferredContact" value="phone"> Phone / Text
+                    <input type="radio" name="preferredContact" value="phone"> Phone Call
                   </label>
                   <label class="radio-label">
-                    <input type="radio" name="preferredContact" value="slack"> Slack / Teams
+                    <input type="radio" name="preferredContact" value="text"> Text
                   </label>
                 </div>
               </div>
@@ -204,10 +200,10 @@
                   <label>Podcast Status <span class="req">*</span></label>
                   <div class="radio-group">
                     <label class="radio-label">
-                      <input type="radio" name="podcastStatus" value="new" required> New podcast from scratch
+                      <input type="radio" name="podcastStatus" value="new" required> I'm starting a new podcast
                     </label>
                     <label class="radio-label">
-                      <input type="radio" name="podcastStatus" value="takeover"> Taking over an existing podcast
+                      <input type="radio" name="podcastStatus" value="existing"> I already have an existing podcast
                     </label>
                   </div>
                 </div>
@@ -224,14 +220,14 @@
                 </div>
               </div>
 
-              <div id="takeover-details" class="conditional hidden">
+              <div id="existing-podcast-details" class="conditional hidden">
                 <div class="form-group">
                   <label for="existing-podcast-url">Existing Podcast URL / RSS Feed</label>
                   <input type="url" id="existing-podcast-url" name="existingPodcastUrl" placeholder="https://...">
                 </div>
                 <div class="form-group">
-                  <label for="takeover-notes">What should we know about the current state of the show?</label>
-                  <textarea id="takeover-notes" name="takeoverNotes" rows="3" placeholder="Episode count, current audience size, why you're switching..."></textarea>
+                  <label for="existing-podcast-notes">What should we know about the current state of the show?</label>
+                  <textarea id="existing-podcast-notes" name="existingPodcastNotes" rows="3" placeholder="Episode count, current audience size, hosting platform, what you'd like to change..."></textarea>
                 </div>
               </div>
 
@@ -621,79 +617,8 @@
               </div>
             </fieldset>
 
-            <!-- Section 8: Distribution & Monetization -->
+            <!-- Section 8: Marketing & Launch Strategy -->
             <fieldset class="form-section" data-section="8">
-              <legend>Distribution &amp; Monetization</legend>
-              <p class="section-desc">Where do you want the show published and what are your revenue goals?</p>
-
-              <div class="form-group">
-                <label>Which platforms do you want the podcast on? (select all that apply)</label>
-                <div class="checkbox-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="apple"> Apple Podcasts
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="spotify"> Spotify
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="youtube"> YouTube / YouTube Music
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="amazon"> Amazon Music / Audible
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="iheart"> iHeartRadio
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="google"> Google Podcasts
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="platforms" value="all"> All major platforms
-                  </label>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Are you interested in monetization / sponsorships?</label>
-                <div class="radio-group">
-                  <label class="radio-label">
-                    <input type="radio" name="wantsMonetization" value="yes"> Yes — help us find sponsors
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsMonetization" value="self"> Yes — but we have our own sponsors
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsMonetization" value="later"> Not yet, maybe later
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsMonetization" value="no"> No — this is not a revenue goal
-                  </label>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="monetization-notes">Monetization Notes (existing sponsors, revenue targets, etc.)</label>
-                <textarea id="monetization-notes" name="monetizationNotes" rows="3" placeholder="Tell us about any existing sponsorship deals or revenue goals..."></textarea>
-              </div>
-
-              <div class="form-group">
-                <label>Do you want a dedicated podcast website or landing page?</label>
-                <div class="radio-group">
-                  <label class="radio-label">
-                    <input type="radio" name="wantsWebsite" value="yes"> Yes — build us one
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsWebsite" value="have-one"> We already have one
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsWebsite" value="no"> No
-                  </label>
-                </div>
-              </div>
-            </fieldset>
-
-            <!-- Section 9: Marketing & Launch Strategy -->
-            <fieldset class="form-section" data-section="9">
               <legend>Marketing &amp; Launch Strategy</legend>
               <p class="section-desc">Let's plan how to make a splash when the show goes live.</p>
 
@@ -716,33 +641,8 @@
               </div>
 
               <div class="form-group">
-                <label>Do you have a trailer / teaser planned?</label>
-                <div class="radio-group">
-                  <label class="radio-label">
-                    <input type="radio" name="wantsTrailer" value="yes"> Yes — create one for us
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsTrailer" value="have-one"> We already have one
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsTrailer" value="no"> No trailer needed
-                  </label>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Do you want a press kit / media kit?</label>
-                <div class="radio-group">
-                  <label class="radio-label">
-                    <input type="radio" name="wantsPressKit" value="yes"> Yes
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsPressKit" value="no"> No
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" name="wantsPressKit" value="undecided"> Not sure yet
-                  </label>
-                </div>
+                <label for="teaser-ideas">We'll be creating a 30–60 second teaser for your podcast before launch. Do you have any ideas on the direction of that?</label>
+                <textarea id="teaser-ideas" name="teaserIdeas" rows="3" placeholder="Tone, key messages, clips you'd like featured, any specific vision..."></textarea>
               </div>
 
               <div class="form-group">
@@ -756,8 +656,8 @@
               </div>
             </fieldset>
 
-            <!-- Section 10: Review & Submit -->
-            <fieldset class="form-section" data-section="10">
+            <!-- Section 9: Review & Submit -->
+            <fieldset class="form-section" data-section="9">
               <legend>Review &amp; Submit</legend>
               <p class="section-desc">Review your information below and hit submit when ready. We'll use this to prepare for our brainstorm meeting.</p>
 

@@ -7,7 +7,7 @@
 
   // ---- State ----
   var currentSection = 1;
-  var totalSections = 10;
+  var totalSections = 9;
   var approvedCompany = "";
   var uploadedFiles = { brand: [], inspo: [], logo: [], music: [] };
   var MAX_INSPO_FILES = 10;
@@ -67,6 +67,7 @@
       switchScreen(onboardingScreen);
       updateProgress();
       updateSidebar();
+      restoreFormDraft();
     } else {
       show(gateError);
     }
@@ -79,6 +80,74 @@
     hide(gateError);
     companyInput.classList.remove("input-error");
   });
+
+  // ---- Auto-save & restore ----
+  var SAVE_PREFIX = "shm_draft_";
+
+  function getSaveKey() {
+    return SAVE_PREFIX + approvedCompany.trim().toLowerCase();
+  }
+
+  function saveFormDraft() {
+    if (!approvedCompany) return;
+    try {
+      var data = getFormData();
+      data._currentSection = currentSection;
+      data._completedSections = completedSections;
+      localStorage.setItem(getSaveKey(), JSON.stringify(data));
+    } catch (e) {
+      console.warn("Could not save draft:", e);
+    }
+  }
+
+  function restoreFormDraft() {
+    if (!approvedCompany) return;
+    try {
+      var stored = localStorage.getItem(getSaveKey());
+      if (!stored) return;
+      var data = JSON.parse(stored);
+
+      // Restore text inputs, textareas, selects
+      var elements = form.elements;
+      for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (!el.name || el.type === "file" || el.type === "submit" || el.type === "button") continue;
+        if (el.type === "radio") {
+          if (data[el.name] !== undefined && el.value === data[el.name]) {
+            el.checked = true;
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        } else if (el.type === "checkbox") {
+          if (el.name !== "platforms" && data[el.name] !== undefined) {
+            el.checked = data[el.name];
+          }
+        } else {
+          if (data[el.name] !== undefined) {
+            el.value = data[el.name];
+          }
+        }
+      }
+
+      // Restore completed sections
+      if (data._completedSections) {
+        completedSections = data._completedSections;
+      }
+
+      // Restore current section position
+      if (data._currentSection && data._currentSection > 1) {
+        showSection(data._currentSection);
+      }
+    } catch (e) {
+      console.warn("Could not restore draft:", e);
+    }
+  }
+
+  function clearFormDraft() {
+    if (!approvedCompany) return;
+    try {
+      localStorage.removeItem(getSaveKey());
+    } catch (e) { /* ignore */ }
+  }
 
   // ---- Sidebar navigation (click to jump) ----
   var sidebarItems = document.querySelectorAll(".sidebar-checklist li");
@@ -236,19 +305,21 @@
   nextBtn.addEventListener("click", function () {
     if (!validateCurrentSection()) return;
     checkSectionCompletion(currentSection);
+    saveFormDraft();
     if (currentSection < totalSections) showSection(currentSection + 1);
   });
 
   prevBtn.addEventListener("click", function () {
     checkSectionCompletion(currentSection);
+    saveFormDraft();
     if (currentSection > 1) showSection(currentSection - 1);
   });
 
   // ---- Conditional visibility ----
   document.querySelectorAll('input[name="podcastStatus"]').forEach(function (r) {
     r.addEventListener("change", function () {
-      var details = document.getElementById("takeover-details");
-      if (r.value === "takeover" && r.checked) show(details); else hide(details);
+      var details = document.getElementById("existing-podcast-details");
+      if (r.value === "existing" && r.checked) show(details); else hide(details);
     });
   });
 
@@ -356,10 +427,11 @@
     html += '<h4>Podcast Basics</h4><dl>';
     html += row("Podcast Name", data.podcastName || "—");
     html += row("Description", data.podcastDescription || "—");
-    html += row("Status", data.podcastStatus === "new" ? "New podcast" : data.podcastStatus === "takeover" ? "Taking over existing" : "—");
+    html += row("Status", data.podcastStatus === "new" ? "Starting a new podcast" : data.podcastStatus === "existing" ? "Already has an existing podcast" : "—");
     html += row("Brand", data.brandStatus === "existing" ? "Existing brand" : data.brandStatus === "new" ? "New brand" : "—");
-    if (data.podcastStatus === "takeover") {
+    if (data.podcastStatus === "existing") {
       html += row("Existing URL", data.existingPodcastUrl || "—");
+      html += row("Existing Podcast Notes", data.existingPodcastNotes || "—");
     }
     html += row("Genre", data.podcastGenre || "—");
     html += row("Format", data.podcastFormat || "—");
@@ -435,25 +507,11 @@
     html += row("Launch Date", data.launchDate || "—");
     html += "</dl>";
 
-    // Distribution & Monetization
-    html += '<h4>Distribution &amp; Monetization</h4><dl>';
-    var platforms = getCheckedValues("platforms");
-    html += row("Platforms", platforms.length ? platforms.join(", ") : "—");
-    var monLabels = { yes: "Help find sponsors", self: "Own sponsors", later: "Maybe later", no: "Not a goal" };
-    html += row("Monetization", monLabels[data.wantsMonetization] || "—");
-    html += row("Monetization Notes", data.monetizationNotes || "—");
-    var webLabels = { yes: "Build one", "have-one": "Already have one", no: "No" };
-    html += row("Podcast Website", webLabels[data.wantsWebsite] || "—");
-    html += "</dl>";
-
     // Marketing & Launch
     html += '<h4>Marketing &amp; Launch</h4><dl>';
     var epLabels = { "1": "1 episode", "3": "3 episodes", "5+": "5+ episodes", undecided: "TBD" };
     html += row("Launch Episodes", epLabels[data.launchEpisodes] || "—");
-    var trailerLabels = { yes: "Create one", "have-one": "Already have one", no: "None" };
-    html += row("Trailer", trailerLabels[data.wantsTrailer] || "—");
-    var pressLabels = { yes: "Yes", no: "No", undecided: "TBD" };
-    html += row("Press Kit", pressLabels[data.wantsPressKit] || "—");
+    html += row("Teaser Ideas", data.teaserIdeas || "—");
     html += row("Marketing Notes", data.marketingNotes || "—");
     html += row("Goals", data.goals || "—");
     html += "</dl>";
@@ -514,7 +572,6 @@
     var data = getFormData();
     data.company = approvedCompany;
     data.submittedAt = new Date().toISOString();
-    data.platforms = getCheckedValues("platforms");
     data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
     data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
     data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
@@ -525,6 +582,9 @@
 
     // Send email notification via FormSubmit.co
     sendEmailNotification(data);
+
+    // Clear the draft since form is submitted
+    clearFormDraft();
 
     // Show success screen
     switchScreen(successScreen);
@@ -618,16 +678,9 @@
     body += "Video: " + (data.isVideo || "Not provided") + "\n";
     body += "Launch Date: " + (data.launchDate || "Not provided") + "\n\n";
 
-    body += "--- DISTRIBUTION & MONETIZATION ---\n";
-    body += "Platforms: " + (data.platforms && data.platforms.length ? data.platforms.join(", ") : "Not provided") + "\n";
-    body += "Monetization: " + (data.wantsMonetization || "Not provided") + "\n";
-    body += "Monetization Notes: " + (data.monetizationNotes || "Not provided") + "\n";
-    body += "Podcast Website: " + (data.wantsWebsite || "Not provided") + "\n\n";
-
     body += "--- MARKETING & LAUNCH ---\n";
     body += "Launch Episodes: " + (data.launchEpisodes || "Not provided") + "\n";
-    body += "Trailer: " + (data.wantsTrailer || "Not provided") + "\n";
-    body += "Press Kit: " + (data.wantsPressKit || "Not provided") + "\n";
+    body += "Teaser Ideas: " + (data.teaserIdeas || "Not provided") + "\n";
     body += "Marketing Notes: " + (data.marketingNotes || "Not provided") + "\n";
     body += "Goals: " + (data.goals || "Not provided") + "\n\n";
 
