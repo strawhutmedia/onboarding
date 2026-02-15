@@ -5,6 +5,13 @@
 /* Notification email — submissions are sent here via FormSubmit.co */
 var SHM_NOTIFICATION_EMAIL = "onboarding@strawhutmedia.com";
 
+/*
+ * Google Drive upload endpoint (Google Apps Script Web App URL).
+ * See google-apps-script.gs for setup instructions.
+ * After deploying, paste your Web App URL below.
+ */
+var SHM_UPLOAD_ENDPOINT = "";
+
 /* Approved Companies (managed via Admin Portal) */
 var APPROVED_COMPANIES = (function () {
   var STORAGE_KEY = "shm_approved_companies";

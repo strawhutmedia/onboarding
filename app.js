@@ -720,6 +720,48 @@
     }));
   }
 
+  // ---- Google Drive upload ----
+  function uploadToDrive(base64Files, category) {
+    var endpoint = (typeof SHM_UPLOAD_ENDPOINT !== "undefined") ? SHM_UPLOAD_ENDPOINT : "";
+    if (!endpoint || base64Files.length === 0) {
+      // No endpoint configured or no files — return files as-is (base64 fallback)
+      return Promise.resolve(base64Files);
+    }
+
+    return fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        company: approvedCompany,
+        category: category,
+        files: base64Files
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (json.success && json.files) {
+        // Merge Drive URLs into file data
+        return base64Files.map(function (f, i) {
+          var driveInfo = json.files[i] || {};
+          return {
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            driveId: driveInfo.driveId || null,
+            viewUrl: driveInfo.viewUrl || null,
+            thumbUrl: driveInfo.thumbUrl || null
+          };
+        });
+      }
+      // If upload failed, fall back to base64
+      return base64Files;
+    })
+    .catch(function () {
+      // Network error — fall back to base64
+      return base64Files;
+    });
+  }
+
   // ---- Submit ----
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -734,13 +776,21 @@
     submitBtn.disabled = true;
     submitBtn.textContent = "Submitting...";
 
-    // Convert all uploaded files to base64
+    // Convert all uploaded files to base64 first
     Promise.all([
       filesToBase64(uploadedFiles.brand),
       filesToBase64(uploadedFiles.logo),
       filesToBase64(uploadedFiles.inspo),
       filesToBase64(uploadedFiles.music)
-    ]).then(function (results) {
+    ]).then(function (base64Results) {
+      // Upload each category to Google Drive
+      return Promise.all([
+        uploadToDrive(base64Results[0], "brand-guidelines"),
+        uploadToDrive(base64Results[1], "logos"),
+        uploadToDrive(base64Results[2], "inspiration"),
+        uploadToDrive(base64Results[3], "music")
+      ]);
+    }).then(function (results) {
       // Mark all sections as completed
       for (var i = 1; i <= totalSections; i++) {
         completedSections[i] = true;
@@ -752,13 +802,13 @@
       data.company = approvedCompany;
       data.submittedAt = new Date().toISOString();
 
-      // Store full file data (with base64 content)
+      // Store file data (with Drive URLs if available, or base64 fallback)
       data.brandFilesData = results[0];
       data.logoFilesData = results[1];
       data.inspoFilesData = results[2];
       data.musicFilesData = results[3];
 
-      // Also store name-only arrays for backward compat
+      // Also store name-only arrays for backward compat / email
       data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
       data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
       data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });

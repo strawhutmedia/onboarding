@@ -594,23 +594,44 @@
     allFiles.forEach(function (file) {
       var isImage = file.type && file.type.indexOf("image/") === 0;
       var isPdf = file.type && file.type === "application/pdf";
+      var hasDrive = file.viewUrl;
 
-      if (isImage && file.dataUrl) {
+      if (hasDrive) {
+        // ---- Google Drive link (works from any device) ----
+        var thumbSrc = isImage && file.thumbUrl ? file.thumbUrl : null;
+
+        html += '<div class="file-preview-item">';
+        html += '<a href="' + file.viewUrl + '" target="_blank" rel="noopener" class="file-drive-link">';
+        if (thumbSrc) {
+          html += '<img class="file-preview-thumb" src="' + thumbSrc + '" alt="' + escapeHtml(file.name) + '">';
+        } else {
+          html += '<span class="file-doc-icon">' + (isPdf ? '&#128196;' : '&#128190;') + '</span>';
+        }
+        html += '</a>';
+        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
+        html += '<a href="' + file.viewUrl + '" target="_blank" rel="noopener" class="file-drive-badge">View in Drive</a>';
+        html += '</div>';
+
+      } else if (isImage && file.dataUrl) {
+        // ---- Base64 image fallback ----
         html += '<div class="file-preview-item">';
         html += '<a href="' + file.dataUrl + '" target="_blank" download="' + escapeHtml(file.name) + '">';
         html += '<img class="file-preview-thumb" src="' + file.dataUrl + '" alt="' + escapeHtml(file.name) + '">';
         html += '</a>';
         html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
         html += '</div>';
+
       } else if (file.dataUrl) {
+        // ---- Base64 document fallback ----
         html += '<div class="file-preview-item file-preview-doc">';
         html += '<a href="' + file.dataUrl + '" download="' + escapeHtml(file.name) + '" class="file-preview-download">';
         html += '<span class="file-doc-icon">' + (isPdf ? '&#128196;' : '&#128190;') + '</span>';
         html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
         html += '</a>';
         html += '</div>';
+
       } else {
-        // Fallback: no data URL, just show name
+        // ---- Name only (no data at all) ----
         html += '<div class="file-preview-item file-preview-doc">';
         html += '<span class="file-doc-icon">&#128190;</span>';
         html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
