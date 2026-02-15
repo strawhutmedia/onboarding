@@ -118,32 +118,41 @@
             <!-- Section 1: Contact Information -->
             <fieldset class="form-section active" data-section="1">
               <legend>Contact Information</legend>
-              <p class="section-desc">Tell us who we'll be working with. This is the primary point of contact for the podcast project.</p>
+              <p class="section-desc">Tell us who we'll be working with. You can add additional team members below if needed.</p>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="contact-first-name">First Name <span class="req">*</span></label>
-                  <input type="text" id="contact-first-name" name="contactFirstName" required placeholder="Jane">
+              <div class="contact-block" data-contact="0">
+                <div class="contact-block-header">
+                  <span class="contact-block-title">Primary Contact</span>
+                  <label class="radio-label primary-radio selected">
+                    <input type="radio" name="primaryContact" value="0" checked> Primary
+                  </label>
                 </div>
-                <div class="form-group">
-                  <label for="contact-last-name">Last Name <span class="req">*</span></label>
-                  <input type="text" id="contact-last-name" name="contactLastName" required placeholder="Smith">
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="contact-first-name">First Name <span class="req">*</span></label>
+                    <input type="text" id="contact-first-name" name="contactFirstName" required placeholder="Jane">
+                  </div>
+                  <div class="form-group">
+                    <label for="contact-last-name">Last Name <span class="req">*</span></label>
+                    <input type="text" id="contact-last-name" name="contactLastName" required placeholder="Smith">
+                  </div>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label for="contact-email">Email Address <span class="req">*</span></label>
-                <input type="email" id="contact-email" name="contactEmail" required placeholder="jane@company.com">
-              </div>
+                <div class="form-group">
+                  <label for="contact-email">Email Address <span class="req">*</span></label>
+                  <input type="email" id="contact-email" name="contactEmail" required placeholder="jane@company.com">
+                </div>
 
-              <div class="form-group">
-                <label for="contact-phone">Phone Number</label>
-                <input type="text" id="contact-phone" name="contactPhone" placeholder="(555) 123-4567">
-              </div>
+                <div class="form-group">
+                  <label for="contact-phone">Phone Number</label>
+                  <input type="text" id="contact-phone" name="contactPhone" placeholder="(555) 123-4567">
+                </div>
 
-              <div class="form-group">
-                <label for="contact-role">Your Role / Title</label>
-                <input type="text" id="contact-role" name="contactRole" placeholder="e.g. Marketing Director, Host, CEO">
+                <div class="form-group">
+                  <label for="contact-role">Role / Title</label>
+                  <input type="text" id="contact-role" name="contactRole" placeholder="e.g. Marketing Director, Host, CEO">
+                </div>
               </div>
 
               <div class="form-group">
@@ -172,6 +181,14 @@
                   </label>
                 </div>
               </div>
+
+              <!-- Additional Contacts -->
+              <div id="additional-contacts"></div>
+
+              <button type="button" id="add-contact-btn" class="btn secondary btn-sm add-contact-btn">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                Add Another Contact
+              </button>
             </fieldset>
 
             <!-- Section 2: Podcast Basics -->
@@ -585,6 +602,27 @@
                 </div>
               </div>
 
+              <div id="guest-booking-details" class="conditional hidden">
+                <div class="form-group">
+                  <label>How would you like guest bookings to be managed?</label>
+                  <p class="field-hint">We work both ways — we can handle everything or you can manage bookings on your end.</p>
+                  <div class="radio-group">
+                    <label class="radio-label">
+                      <input type="radio" name="guestBooking" value="straw-hut"> Straw Hut handles it — find, book, and coordinate guests for us
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="guestBooking" value="client"> We'll handle it — we have our own guests lined up
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="guestBooking" value="collaborate"> Collaborative — we'll both contribute guests
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="guestBooking" value="undecided"> Not sure yet — let's discuss
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <div class="form-group">
                 <label>Will the podcast be video as well as audio?</label>
                 <div class="radio-group">
@@ -597,6 +635,14 @@
                   <label class="radio-label">
                     <input type="radio" name="isVideo" value="undecided"> Not sure yet
                   </label>
+                </div>
+              </div>
+
+              <div id="video-reference-details" class="conditional hidden">
+                <div class="form-group">
+                  <label for="video-references">Do you have any video podcast references?</label>
+                  <p class="field-hint">Share links or names of video podcasts whose look and feel you like. This helps us understand your vision for the visual style.</p>
+                  <textarea id="video-references" name="videoReferences" rows="3" placeholder="e.g. Colin &amp; Samir's studio setup, Hot Ones interview style, Diary of a CEO lighting..."></textarea>
                 </div>
               </div>
 
@@ -673,8 +719,12 @@
             <!-- Navigation -->
             <div class="form-nav">
               <button type="button" id="prev-btn" class="btn secondary" disabled>Back</button>
-              <button type="button" id="next-btn" class="btn primary">Next</button>
-              <button type="submit" id="submit-btn" class="btn primary hidden">Submit Onboarding</button>
+              <button type="button" id="next-btn" class="btn primary">Save &amp; Continue</button>
+              <button type="submit" id="submit-btn" class="btn primary hidden" disabled>Submit Onboarding</button>
+            </div>
+            <div class="autosave-notice" id="autosave-notice">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Your progress is automatically saved</span>
             </div>
           </form>
 

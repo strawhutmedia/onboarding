@@ -665,6 +665,95 @@ select {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Auto-save notice */
+.autosave-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--gray-400);
+  justify-content: center;
+  opacity: 0.7;
+}
+.autosave-notice svg {
+  flex-shrink: 0;
+  color: var(--green);
+}
+.autosave-notice .save-flash {
+  color: var(--green);
+  font-weight: 600;
+  transition: opacity 0.3s ease;
+}
+
+/* Contact blocks */
+.contact-block {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+.contact-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.contact-block-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--white);
+}
+.primary-radio {
+  font-size: 12px !important;
+  padding: 4px 12px !important;
+  border-radius: 50px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: transparent;
+  white-space: nowrap;
+}
+.primary-radio.selected {
+  border-color: var(--green) !important;
+  background: var(--green-soft) !important;
+  color: var(--green) !important;
+}
+.remove-contact-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+}
+.remove-contact-btn:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.add-contact-btn {
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.btn.btn-sm {
+  padding: 10px 20px;
+  font-size: 0.82rem;
+}
+
+/* Field hints */
+.field-hint {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
 /* ---- Summary box ---- */
 .summary-box {
   background: rgba(255, 255, 255, 0.06);
