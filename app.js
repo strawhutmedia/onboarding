@@ -262,12 +262,16 @@
     updateSidebar();
   }
 
-  // Listen for any input changes to auto-check completion
+  // Listen for any input changes to auto-check completion and auto-save
+  var autoSaveTimer;
   form.addEventListener("input", function () {
     checkSectionCompletion(currentSection);
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function () { saveFormDraft(); }, 1000);
   });
   form.addEventListener("change", function () {
     checkSectionCompletion(currentSection);
+    saveFormDraft();
   });
 
   function validateCurrentSection() {
@@ -306,12 +310,14 @@
     if (!validateCurrentSection()) return;
     checkSectionCompletion(currentSection);
     saveFormDraft();
+    flashSaved();
     if (currentSection < totalSections) showSection(currentSection + 1);
   });
 
   prevBtn.addEventListener("click", function () {
     checkSectionCompletion(currentSection);
     saveFormDraft();
+    flashSaved();
     if (currentSection > 1) showSection(currentSection - 1);
   });
 
@@ -343,6 +349,126 @@
       if (r.value === "have-some" && r.checked) show(upload); else hide(upload);
     });
   });
+
+  // Guest booking conditional
+  document.querySelectorAll('input[name="hasGuests"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      var details = document.getElementById("guest-booking-details");
+      if ((r.value === "yes" || r.value === "sometimes") && r.checked) show(details); else hide(details);
+    });
+  });
+
+  // Video reference conditional
+  document.querySelectorAll('input[name="isVideo"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      var details = document.getElementById("video-reference-details");
+      if (r.value === "yes" && r.checked) show(details); else hide(details);
+    });
+  });
+
+  // ---- Submit button toggle (disabled until checkbox checked) ----
+  var confirmCheckbox = document.getElementById("confirm-submit");
+  confirmCheckbox.addEventListener("change", function () {
+    submitBtn.disabled = !confirmCheckbox.checked;
+    if (confirmCheckbox.checked) {
+      confirmCheckbox.closest(".checkbox-label").style.outline = "none";
+    }
+  });
+
+  // ---- Additional contacts ----
+  var additionalContactsContainer = document.getElementById("additional-contacts");
+  var addContactBtn = document.getElementById("add-contact-btn");
+  var contactCount = 0;
+  var MAX_ADDITIONAL_CONTACTS = 3;
+
+  addContactBtn.addEventListener("click", function () {
+    if (contactCount >= MAX_ADDITIONAL_CONTACTS) return;
+    contactCount++;
+    var idx = contactCount;
+
+    var block = document.createElement("div");
+    block.className = "contact-block";
+    block.dataset.contact = idx;
+    block.innerHTML =
+      '<button type="button" class="remove-contact-btn" title="Remove contact">&times;</button>' +
+      '<div class="contact-block-header">' +
+        '<span class="contact-block-title">Additional Contact ' + idx + '</span>' +
+        '<label class="radio-label primary-radio">' +
+          '<input type="radio" name="primaryContact" value="' + idx + '"> Primary' +
+        '</label>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group">' +
+          '<label>First Name</label>' +
+          '<input type="text" name="altContact' + idx + 'FirstName" placeholder="First name">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label>Last Name</label>' +
+          '<input type="text" name="altContact' + idx + 'LastName" placeholder="Last name">' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label>Email Address</label>' +
+        '<input type="email" name="altContact' + idx + 'Email" placeholder="email@company.com">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label>Role / Title</label>' +
+        '<input type="text" name="altContact' + idx + 'Role" placeholder="e.g. Producer, Co-host, Marketing Lead">' +
+      '</div>';
+
+    additionalContactsContainer.appendChild(block);
+    updatePrimaryRadioStyles();
+
+    if (contactCount >= MAX_ADDITIONAL_CONTACTS) {
+      addContactBtn.disabled = true;
+    }
+
+    // Remove contact handler
+    block.querySelector(".remove-contact-btn").addEventListener("click", function () {
+      // If removing the primary contact, reset to first contact
+      var radio = block.querySelector('input[name="primaryContact"]');
+      if (radio.checked) {
+        var firstRadio = document.querySelector('input[name="primaryContact"][value="0"]');
+        if (firstRadio) { firstRadio.checked = true; }
+      }
+      block.remove();
+      contactCount--;
+      addContactBtn.disabled = false;
+      updatePrimaryRadioStyles();
+      checkSectionCompletion(currentSection);
+    });
+  });
+
+  // Update primary radio visual state
+  function updatePrimaryRadioStyles() {
+    document.querySelectorAll('.primary-radio').forEach(function (label) {
+      var radio = label.querySelector('input[type="radio"]');
+      if (radio && radio.checked) {
+        label.classList.add("selected");
+      } else {
+        label.classList.remove("selected");
+      }
+    });
+  }
+
+  document.addEventListener("change", function (e) {
+    if (e.target.name === "primaryContact") {
+      updatePrimaryRadioStyles();
+    }
+  });
+
+  // ---- Auto-save flash indicator ----
+  var saveNotice = document.getElementById("autosave-notice");
+  var saveFlashTimeout;
+
+  function flashSaved() {
+    var span = saveNotice.querySelector("span");
+    span.innerHTML = '<span class="save-flash">Saved!</span>';
+    clearTimeout(saveFlashTimeout);
+    saveFlashTimeout = setTimeout(function () {
+      span.textContent = "Your progress is automatically saved";
+    }, 2000);
+  }
 
   // ---- File uploads ----
   function setupFileUpload(inputId, listId, storageKey, maxFiles) {
@@ -415,10 +541,29 @@
 
     // Contact
     html += '<h4>Contact Information</h4><dl>';
-    html += row("Name", (data.contactFirstName || "") + " " + (data.contactLastName || ""));
+    var primaryIdx = data.primaryContact || "0";
+    if (primaryIdx === "0") {
+      html += row("Name (Primary)", (data.contactFirstName || "") + " " + (data.contactLastName || ""));
+    } else {
+      html += row("Name", (data.contactFirstName || "") + " " + (data.contactLastName || ""));
+    }
     html += row("Email", data.contactEmail || "—");
     html += row("Phone", data.contactPhone || "—");
     html += row("Role", data.contactRole || "—");
+
+    // Additional contacts
+    for (var ci = 1; ci <= 3; ci++) {
+      var fn = data["altContact" + ci + "FirstName"];
+      var ln = data["altContact" + ci + "LastName"];
+      if (fn || ln) {
+        var isPrimary = primaryIdx === String(ci);
+        var nameLabel = isPrimary ? "Name (Primary)" : "Name";
+        html += row(nameLabel, (fn || "") + " " + (ln || ""));
+        html += row("Email", data["altContact" + ci + "Email"] || "—");
+        html += row("Role", data["altContact" + ci + "Role"] || "—");
+      }
+    }
+
     html += row("Timezone", data.contactTimezone || "—");
     html += row("Preferred Contact", data.preferredContact || "—");
     html += "</dl>";
@@ -502,8 +647,15 @@
     html += row("Host(s)", data.hostsInfo || "—");
     var guestLabels = { yes: "Yes, regularly", sometimes: "Sometimes", no: "No", undecided: "TBD" };
     html += row("Guests", guestLabels[data.hasGuests] || "—");
+    if (data.hasGuests === "yes" || data.hasGuests === "sometimes") {
+      var bookingLabels = { "straw-hut": "Straw Hut handles it", client: "Client handles it", collaborate: "Collaborative", undecided: "TBD" };
+      html += row("Guest Booking", bookingLabels[data.guestBooking] || "—");
+    }
     var videoLabels = { yes: "Audio + Video", "audio-only": "Audio only", undecided: "TBD" };
     html += row("Video", videoLabels[data.isVideo] || "—");
+    if (data.isVideo === "yes") {
+      html += row("Video References", data.videoReferences || "—");
+    }
     html += row("Launch Date", data.launchDate || "—");
     html += "</dl>";
 
@@ -618,10 +770,24 @@
     body += "Submitted: " + new Date(data.submittedAt).toLocaleString() + "\n\n";
 
     body += "--- CONTACT INFORMATION ---\n";
+    var primaryIdx = data.primaryContact || "0";
+    body += "Primary Contact: " + (primaryIdx === "0" ? "Main" : "Additional #" + primaryIdx) + "\n";
     body += "Name: " + (data.contactFirstName || "") + " " + (data.contactLastName || "") + "\n";
     body += "Email: " + (data.contactEmail || "Not provided") + "\n";
     body += "Phone: " + (data.contactPhone || "Not provided") + "\n";
     body += "Role: " + (data.contactRole || "Not provided") + "\n";
+
+    for (var ci = 1; ci <= 3; ci++) {
+      var fn = data["altContact" + ci + "FirstName"];
+      var ln = data["altContact" + ci + "LastName"];
+      if (fn || ln) {
+        body += "\nAdditional Contact " + ci + ":\n";
+        body += "  Name: " + (fn || "") + " " + (ln || "") + "\n";
+        body += "  Email: " + (data["altContact" + ci + "Email"] || "Not provided") + "\n";
+        body += "  Role: " + (data["altContact" + ci + "Role"] || "Not provided") + "\n";
+      }
+    }
+
     body += "Timezone: " + (data.contactTimezone || "Not provided") + "\n";
     body += "Preferred Contact: " + (data.preferredContact || "Not provided") + "\n\n";
 
@@ -675,7 +841,13 @@
     body += "Episode Length: " + (data.episodeLength || "Not provided") + "\n";
     body += "Host(s): " + (data.hostsInfo || "Not provided") + "\n";
     body += "Guests: " + (data.hasGuests || "Not provided") + "\n";
+    if (data.hasGuests === "yes" || data.hasGuests === "sometimes") {
+      body += "Guest Booking: " + (data.guestBooking || "Not provided") + "\n";
+    }
     body += "Video: " + (data.isVideo || "Not provided") + "\n";
+    if (data.isVideo === "yes") {
+      body += "Video References: " + (data.videoReferences || "Not provided") + "\n";
+    }
     body += "Launch Date: " + (data.launchDate || "Not provided") + "\n\n";
 
     body += "--- MARKETING & LAUNCH ---\n";
