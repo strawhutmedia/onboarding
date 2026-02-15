@@ -470,15 +470,30 @@
   function buildSubmissionDetails(sub, idx) {
     var html = '<div class="sub-detail-grid">';
 
-    html += sectionBlock("Contact Information", [
+    // Contact Information (including additional contacts)
+    var contactFields = [
       ["First Name", "contactFirstName", sub.contactFirstName],
       ["Last Name", "contactLastName", sub.contactLastName],
       ["Email", "contactEmail", sub.contactEmail],
       ["Phone", "contactPhone", sub.contactPhone],
       ["Role", "contactRole", sub.contactRole],
+      ["Primary Contact", "primaryContact", sub.primaryContact === "0" || !sub.primaryContact ? "Main contact" : "Additional #" + sub.primaryContact],
       ["Timezone", "contactTimezone", sub.contactTimezone],
       ["Preferred Contact", "preferredContact", sub.preferredContact]
-    ]);
+    ];
+
+    // Add additional contacts if present
+    for (var ci = 1; ci <= 3; ci++) {
+      var fn = sub["altContact" + ci + "FirstName"];
+      var ln = sub["altContact" + ci + "LastName"];
+      if (fn || ln) {
+        contactFields.push(["Alt Contact " + ci + " Name", "altContact" + ci + "FirstName", (fn || "") + " " + (ln || "")]);
+        contactFields.push(["Alt Contact " + ci + " Email", "altContact" + ci + "Email", sub["altContact" + ci + "Email"]]);
+        contactFields.push(["Alt Contact " + ci + " Role", "altContact" + ci + "Role", sub["altContact" + ci + "Role"]]);
+      }
+    }
+
+    html += sectionBlock("Contact Information", contactFields);
 
     html += sectionBlock("Podcast Basics", [
       ["Podcast Name", "podcastName", sub.podcastName],
@@ -497,11 +512,17 @@
       ["Voice / Tone", "brandVoice", sub.brandVoice, true]
     ]);
 
+    // Brand guidelines files
+    html += filesBlock("Brand & Logo Uploads", sub.brandFilesData, sub.logoFilesData);
+
     html += sectionBlock("Inspiration", [
       ["Podcasts Admired", "inspoPodcasts", sub.inspoPodcasts, true],
       ["Brands Admired", "inspoBrands", sub.inspoBrands, true],
       ["Visual Notes", "inspoNotes", sub.inspoNotes, true]
     ]);
+
+    // Inspiration files
+    html += filesBlock("Inspiration Uploads", sub.inspoFilesData);
 
     html += sectionBlock("Music & Audio", [
       ["Needs Music", "needsMusic", sub.needsMusic],
@@ -509,6 +530,9 @@
       ["Music References", "musicReferences", sub.musicReferences, true],
       ["Sound Effects", "wantsSFX", sub.wantsSFX]
     ]);
+
+    // Music files
+    html += filesBlock("Music Uploads", sub.musicFilesData);
 
     html += sectionBlock("Social Media & Web", [
       ["Website", "socialWebsite", sub.socialWebsite],
@@ -521,16 +545,20 @@
       ["Short-form Clips", "wantsClips", sub.wantsClips]
     ]);
 
-    html += sectionBlock("Recording & Logistics", [
+    var logisticsFields = [
       ["Location", "recordingLocation", sub.recordingLocation],
       ["Address", "locationAddress", sub.locationAddress],
       ["Frequency", "episodeFrequency", sub.episodeFrequency],
       ["Episode Length", "episodeLength", sub.episodeLength],
       ["Host(s)", "hostsInfo", sub.hostsInfo, true],
       ["Guests", "hasGuests", sub.hasGuests],
+      ["Guest Booking", "guestBooking", sub.guestBooking],
       ["Video", "isVideo", sub.isVideo],
+      ["Video References", "videoReferences", sub.videoReferences, true],
       ["Launch Date", "launchDate", sub.launchDate]
-    ]);
+    ];
+
+    html += sectionBlock("Recording & Logistics", logisticsFields);
 
     html += sectionBlock("Marketing & Launch", [
       ["Launch Episodes", "launchEpisodes", sub.launchEpisodes],
@@ -544,6 +572,53 @@
     ]);
 
     html += '</div>';
+    return html;
+  }
+
+  // ---- File preview blocks ----
+  function filesBlock(title) {
+    // Collect all file arrays passed as arguments (after title)
+    var allFiles = [];
+    for (var i = 1; i < arguments.length; i++) {
+      var arr = arguments[i];
+      if (arr && Array.isArray(arr)) {
+        allFiles = allFiles.concat(arr);
+      }
+    }
+    if (allFiles.length === 0) return '';
+
+    var html = '<div class="sub-section">';
+    html += '<h4 class="sub-section-title">' + escapeHtml(title) + '</h4>';
+    html += '<div class="file-preview-grid">';
+
+    allFiles.forEach(function (file) {
+      var isImage = file.type && file.type.indexOf("image/") === 0;
+      var isPdf = file.type && file.type === "application/pdf";
+
+      if (isImage && file.dataUrl) {
+        html += '<div class="file-preview-item">';
+        html += '<a href="' + file.dataUrl + '" target="_blank" download="' + escapeHtml(file.name) + '">';
+        html += '<img class="file-preview-thumb" src="' + file.dataUrl + '" alt="' + escapeHtml(file.name) + '">';
+        html += '</a>';
+        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
+        html += '</div>';
+      } else if (file.dataUrl) {
+        html += '<div class="file-preview-item file-preview-doc">';
+        html += '<a href="' + file.dataUrl + '" download="' + escapeHtml(file.name) + '" class="file-preview-download">';
+        html += '<span class="file-doc-icon">' + (isPdf ? '&#128196;' : '&#128190;') + '</span>';
+        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
+        html += '</a>';
+        html += '</div>';
+      } else {
+        // Fallback: no data URL, just show name
+        html += '<div class="file-preview-item file-preview-doc">';
+        html += '<span class="file-doc-icon">&#128190;</span>';
+        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
+        html += '</div>';
+      }
+    });
+
+    html += '</div></div>';
     return html;
   }
 

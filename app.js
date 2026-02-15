@@ -704,6 +704,22 @@
     return values;
   }
 
+  // ---- File conversion helper ----
+  function filesToBase64(files) {
+    return Promise.all(files.map(function (f) {
+      return new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          resolve({ name: f.name, type: f.type, size: f.size, dataUrl: reader.result });
+        };
+        reader.onerror = function () {
+          resolve({ name: f.name, type: f.type, size: f.size, dataUrl: null });
+        };
+        reader.readAsDataURL(f);
+      });
+    }));
+  }
+
   // ---- Submit ----
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -714,32 +730,52 @@
     }
     confirmBox.closest(".checkbox-label").style.outline = "none";
 
-    // Mark all sections as completed
-    for (var i = 1; i <= totalSections; i++) {
-      completedSections[i] = true;
-    }
-    updateSidebar();
-    updateProgress();
+    // Disable submit to prevent double-click
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
 
-    var data = getFormData();
-    data.company = approvedCompany;
-    data.submittedAt = new Date().toISOString();
-    data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
-    data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
-    data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
-    data.musicFiles = uploadedFiles.music.map(function (f) { return f.name; });
+    // Convert all uploaded files to base64
+    Promise.all([
+      filesToBase64(uploadedFiles.brand),
+      filesToBase64(uploadedFiles.logo),
+      filesToBase64(uploadedFiles.inspo),
+      filesToBase64(uploadedFiles.music)
+    ]).then(function (results) {
+      // Mark all sections as completed
+      for (var i = 1; i <= totalSections; i++) {
+        completedSections[i] = true;
+      }
+      updateSidebar();
+      updateProgress();
 
-    // Save submission to localStorage for admin portal
-    saveSubmission(data);
+      var data = getFormData();
+      data.company = approvedCompany;
+      data.submittedAt = new Date().toISOString();
 
-    // Send email notification via FormSubmit.co
-    sendEmailNotification(data);
+      // Store full file data (with base64 content)
+      data.brandFilesData = results[0];
+      data.logoFilesData = results[1];
+      data.inspoFilesData = results[2];
+      data.musicFilesData = results[3];
 
-    // Clear the draft since form is submitted
-    clearFormDraft();
+      // Also store name-only arrays for backward compat
+      data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
+      data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
+      data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
+      data.musicFiles = uploadedFiles.music.map(function (f) { return f.name; });
 
-    // Show success screen
-    switchScreen(successScreen);
+      // Save submission to localStorage for admin portal
+      saveSubmission(data);
+
+      // Send email notification via FormSubmit.co
+      sendEmailNotification(data);
+
+      // Clear the draft since form is submitted
+      clearFormDraft();
+
+      // Show success screen
+      switchScreen(successScreen);
+    });
   });
 
   // ---- Save submission to localStorage ----
