@@ -753,12 +753,18 @@
           };
         });
       }
-      // If upload failed, fall back to base64
-      return base64Files;
+      // If upload failed, flag it and fall back to base64
+      return base64Files.map(function (f) {
+        return { name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl, uploadFailed: true };
+      });
     })
-    .catch(function () {
-      // Network error — fall back to base64
-      return base64Files;
+    .catch(function (err) {
+      // Network error — flag it and fall back to base64
+      console.error("Drive upload failed for category '" + category + "':", err);
+      var fallback = base64Files.map(function (f) {
+        return { name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl, uploadFailed: true };
+      });
+      return fallback;
     });
   }
 
@@ -822,6 +828,17 @@
 
       // Clear the draft since form is submitted
       clearFormDraft();
+
+      // Check if any file uploads failed
+      var allFiles = [].concat(results[0], results[1], results[2], results[3]);
+      var anyFailed = allFiles.some(function (f) { return f && f.uploadFailed; });
+      if (anyFailed) {
+        var warning = document.createElement("div");
+        warning.className = "upload-warning";
+        warning.style.cssText = "background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 16px;border-radius:8px;margin:16px 0;font-size:14px;";
+        warning.innerHTML = "<strong>Note:</strong> Some files could not be uploaded to Google Drive. Your form was still submitted successfully. Please email your files directly to <a href='mailto:onboarding@strawhutmedia.com'>onboarding@strawhutmedia.com</a>.";
+        successScreen.insertBefore(warning, successScreen.children[1] || null);
+      }
 
       // Show success screen
       switchScreen(successScreen);
