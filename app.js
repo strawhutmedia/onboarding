@@ -845,20 +845,34 @@
     });
   });
 
-  // ---- Save submission to localStorage ----
+  // ---- Save submission to Google Sheets backend ----
   function saveSubmission(data) {
-    try {
-      var SUBS_KEY = "shm_submissions";
-      var existing = [];
-      var stored = localStorage.getItem(SUBS_KEY);
-      if (stored) {
-        existing = JSON.parse(stored);
-        if (!Array.isArray(existing)) existing = [];
-      }
-      existing.push(data);
-      localStorage.setItem(SUBS_KEY, JSON.stringify(existing));
-    } catch (e) {
-      console.warn("Could not save submission to localStorage:", e);
+    var endpoint = (typeof SHM_UPLOAD_ENDPOINT !== "undefined") ? SHM_UPLOAD_ENDPOINT : "";
+    if (endpoint) {
+      // Strip base64 dataUrl from file data before saving (too large for Sheets)
+      var cleanData = JSON.parse(JSON.stringify(data));
+      ["brandFilesData", "logoFilesData", "inspoFilesData", "musicFilesData"].forEach(function (key) {
+        if (cleanData[key] && Array.isArray(cleanData[key])) {
+          cleanData[key] = cleanData[key].map(function (f) {
+            return { name: f.name, type: f.type, size: f.size, driveId: f.driveId, viewUrl: f.viewUrl, thumbUrl: f.thumbUrl };
+          });
+        }
+      });
+
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "saveSubmission", data: cleanData })
+      }).then(function (res) { return res.json(); })
+        .then(function (json) {
+          if (json.success) {
+            console.log("Submission saved to backend, ID:", json.id);
+          } else {
+            console.warn("Backend save failed:", json.error);
+          }
+        }).catch(function (err) {
+          console.warn("Could not save submission to backend:", err);
+        });
     }
   }
 

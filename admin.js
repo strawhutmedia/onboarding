@@ -1,16 +1,20 @@
 /* ============================================
    Straw Hut Media — Admin Portal
+   (Backend-powered: Google Sheets via Apps Script)
    ============================================ */
 
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "shm_approved_companies";
-  var SUBS_KEY = "shm_submissions";
+  var ENDPOINT = (typeof SHM_UPLOAD_ENDPOINT !== "undefined") ? SHM_UPLOAD_ENDPOINT : "";
   var CREDENTIALS = {
     username: "strawhutmedia",
     passwordHash: "a]T9#kP2x!mW"
   };
+
+  // In-memory cache
+  var cachedSubmissions = [];
+  var cachedCompanies = [];
 
   // ---- DOM refs ----
   var loginScreen = document.getElementById("admin-login");
@@ -55,33 +59,54 @@
     });
   });
 
-  // ---- Company storage ----
-  function getCompanies() {
-    try {
-      var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch (e) { /* ignore */ }
-    return [];
+  // ============================================================
+  //  Backend API helpers
+  // ============================================================
+
+  function apiGet(action) {
+    return fetch(ENDPOINT + "?action=" + action)
+      .then(function (res) { return res.json(); });
   }
 
-  function saveCompanies(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  function apiPost(payload) {
+    return fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function (res) { return res.json(); });
   }
 
-  // ---- Submissions storage ----
-  function getSubmissions() {
-    try {
-      var stored = localStorage.getItem(SUBS_KEY);
-      if (stored) {
-        var parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) { /* ignore */ }
-    return [];
+  // ============================================================
+  //  Load data from backend
+  // ============================================================
+
+  function loadSubmissions(callback) {
+    submissionsList.innerHTML = '<p class="loading-msg">Loading submissions...</p>';
+    apiGet("getSubmissions")
+      .then(function (json) {
+        if (json.success) {
+          cachedSubmissions = json.submissions || [];
+        }
+        renderSubmissions();
+        if (callback) callback();
+      })
+      .catch(function (err) {
+        submissionsList.innerHTML = '<p class="error-msg">Could not load submissions. Check your internet connection.<br><small>' + escapeHtml(err.message) + '</small></p>';
+      });
   }
 
-  function saveSubmissions(list) {
-    localStorage.setItem(SUBS_KEY, JSON.stringify(list));
+  function loadCompanies(callback) {
+    apiGet("getCompanies")
+      .then(function (json) {
+        if (json.success) {
+          cachedCompanies = json.companies || [];
+        }
+        renderCompanies();
+        if (callback) callback();
+      })
+      .catch(function (err) {
+        companyList.innerHTML = '<p class="error-msg">Could not load companies. Check your internet connection.</p>';
+      });
   }
 
   // ---- Auth ----
@@ -102,8 +127,8 @@
       hide(loginError);
       sessionStorage.setItem("shm_admin_auth", "1");
       switchScreen(dashboard);
-      renderCompanies();
-      renderSubmissions();
+      loadSubmissions();
+      loadCompanies();
     } else {
       show(loginError);
     }
@@ -128,39 +153,50 @@
 
   if (sessionStorage.getItem("shm_admin_auth") === "1") {
     switchScreen(dashboard);
-    renderCompanies();
-    renderSubmissions();
+    loadSubmissions();
+    loadCompanies();
   }
 
-  // ---- Company CRUD ----
+  // ============================================================
+  //  Company CRUD (via backend)
+  // ============================================================
+
   function renderCompanies() {
-    var companies = getCompanies();
-    companyCount.textContent = companies.length;
+    companyCount.textContent = cachedCompanies.length;
     companyList.innerHTML = "";
 
-    if (companies.length === 0) {
+    if (cachedCompanies.length === 0) {
       show(emptyState);
       return;
     }
 
     hide(emptyState);
 
-    companies.forEach(function (name, idx) {
+    cachedCompanies.forEach(function (name, idx) {
       var div = document.createElement("div");
       div.className = "company-item";
       div.innerHTML =
         '<span class="company-name">' + escapeHtml(name) + '</span>' +
-        '<button class="company-remove" data-idx="' + idx + '" title="Remove">&times;</button>';
+        '<button class="company-remove" data-name="' + escapeHtml(name) + '" title="Remove">&times;</button>';
       companyList.appendChild(div);
     });
 
     companyList.querySelectorAll(".company-remove").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var idx = parseInt(btn.dataset.idx);
-        var companies = getCompanies();
-        companies.splice(idx, 1);
-        saveCompanies(companies);
-        renderCompanies();
+        var name = btn.dataset.name;
+        btn.disabled = true;
+        btn.textContent = "...";
+        apiPost({ action: "removeCompany", name: name })
+          .then(function (json) {
+            if (json.success) {
+              cachedCompanies = json.companies || [];
+              renderCompanies();
+            }
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.textContent = "\u00d7";
+          });
       });
     });
   }
@@ -185,8 +221,7 @@
       return;
     }
 
-    var companies = getCompanies();
-    var duplicate = companies.some(function (c) {
+    var duplicate = cachedCompanies.some(function (c) {
       return c.toLowerCase() === name.toLowerCase();
     });
 
@@ -196,21 +231,41 @@
       return;
     }
 
-    companies.push(name);
-    saveCompanies(companies);
-    newCompanyInput.value = "";
-    newCompanyInput.classList.remove("input-error");
-    hide(addError);
-    renderCompanies();
+    addBtn.disabled = true;
+    addBtn.textContent = "Adding...";
+
+    apiPost({ action: "addCompany", name: name })
+      .then(function (json) {
+        if (json.success) {
+          cachedCompanies = json.companies || [];
+          newCompanyInput.value = "";
+          newCompanyInput.classList.remove("input-error");
+          hide(addError);
+          renderCompanies();
+        } else {
+          addError.textContent = "Could not add company.";
+          show(addError);
+        }
+      })
+      .catch(function (err) {
+        addError.textContent = "Network error. Try again.";
+        show(addError);
+      })
+      .finally(function () {
+        addBtn.disabled = false;
+        addBtn.textContent = "Add";
+      });
   }
 
-  // ---- Submissions rendering ----
+  // ============================================================
+  //  Submissions rendering (from backend data)
+  // ============================================================
+
   function renderSubmissions() {
-    var submissions = getSubmissions();
-    submissionCount.textContent = submissions.length;
+    submissionCount.textContent = cachedSubmissions.length;
     submissionsList.innerHTML = "";
 
-    if (submissions.length === 0) {
+    if (cachedSubmissions.length === 0) {
       show(submissionsEmpty);
       return;
     }
@@ -218,11 +273,11 @@
     hide(submissionsEmpty);
 
     // Sort by date descending (newest first)
-    submissions.sort(function (a, b) {
+    cachedSubmissions.sort(function (a, b) {
       return new Date(b.submittedAt) - new Date(a.submittedAt);
     });
 
-    submissions.forEach(function (sub, idx) {
+    cachedSubmissions.forEach(function (sub, idx) {
       var card = document.createElement("div");
       card.className = "submission-card";
 
@@ -287,9 +342,9 @@
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var idx = parseInt(btn.dataset.idx);
-        // Save first, then resend
-        saveSubmissionEdits(idx);
-        resendEmail(idx);
+        saveSubmissionEdits(idx, function () {
+          resendEmail(idx);
+        });
       });
     });
 
@@ -298,43 +353,66 @@
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var idx = parseInt(btn.dataset.idx);
-        var subs = getSubmissions();
-        // Re-sort to match display order
-        subs.sort(function (a, b) {
-          return new Date(b.submittedAt) - new Date(a.submittedAt);
-        });
-        subs.splice(idx, 1);
-        saveSubmissions(subs);
-        renderSubmissions();
+        var sub = cachedSubmissions[idx];
+        if (!sub || !sub._id) return;
+
+        btn.disabled = true;
+        btn.textContent = "Deleting...";
+        showStatus(idx, "Deleting...", "info");
+
+        apiPost({ action: "deleteSubmission", id: sub._id })
+          .then(function (json) {
+            if (json.success) {
+              cachedSubmissions.splice(idx, 1);
+              renderSubmissions();
+            } else {
+              showStatus(idx, "Delete failed.", "error");
+              btn.disabled = false;
+              btn.textContent = "Delete";
+            }
+          })
+          .catch(function () {
+            showStatus(idx, "Network error. Try again.", "error");
+            btn.disabled = false;
+            btn.textContent = "Delete";
+          });
       });
     });
   }
 
-  // ---- Save edits from inline fields ----
-  function saveSubmissionEdits(idx) {
-    var subs = getSubmissions();
-    subs.sort(function (a, b) {
-      return new Date(b.submittedAt) - new Date(a.submittedAt);
-    });
+  // ---- Save edits to backend ----
+  function saveSubmissionEdits(idx, callback) {
+    var sub = cachedSubmissions[idx];
+    if (!sub || !sub._id) return;
 
     var container = document.getElementById("sub-details-" + idx);
     var inputs = container.querySelectorAll("[data-field]");
+    var updates = {};
     inputs.forEach(function (input) {
       var key = input.dataset.field;
-      subs[idx][key] = input.value;
+      updates[key] = input.value;
+      sub[key] = input.value; // Update local cache too
     });
 
-    saveSubmissions(subs);
-    showStatus(idx, "Changes saved.", "success");
+    showStatus(idx, "Saving...", "info");
+
+    apiPost({ action: "updateSubmission", id: sub._id, data: updates })
+      .then(function (json) {
+        if (json.success) {
+          showStatus(idx, "Changes saved.", "success");
+          if (callback) callback();
+        } else {
+          showStatus(idx, "Save failed: " + (json.error || "Unknown error"), "error");
+        }
+      })
+      .catch(function (err) {
+        showStatus(idx, "Network error: " + err.message, "error");
+      });
   }
 
   // ---- Resend email notification ----
   function resendEmail(idx) {
-    var subs = getSubmissions();
-    subs.sort(function (a, b) {
-      return new Date(b.submittedAt) - new Date(a.submittedAt);
-    });
-    var data = subs[idx];
+    var data = cachedSubmissions[idx];
 
     var notifyEl = document.getElementById("notify-email");
     var email = notifyEl ? notifyEl.textContent : "onboarding@strawhutmedia.com";
@@ -366,6 +444,20 @@
     body += "Brand Colors: " + (data.brandColors || "Not provided") + "\n";
     body += "Fonts: " + (data.brandFonts || "Not provided") + "\n";
     body += "Voice/Tone: " + (data.brandVoice || "Not provided") + "\n\n";
+
+    body += "--- UPLOADED FILES ---\n";
+    ["brandFilesData", "logoFilesData", "inspoFilesData", "musicFilesData"].forEach(function (key) {
+      if (data[key] && data[key].length > 0) {
+        var label = key.replace("FilesData", "").replace(/([A-Z])/g, " $1").trim();
+        body += label.charAt(0).toUpperCase() + label.slice(1) + ":\n";
+        data[key].forEach(function (f) {
+          body += "  - " + f.name;
+          if (f.viewUrl) body += " (" + f.viewUrl + ")";
+          body += "\n";
+        });
+      }
+    });
+    body += "\n";
 
     body += "--- INSPIRATION ---\n";
     body += "Podcasts Admired: " + (data.inspoPodcasts || "Not provided") + "\n";
@@ -612,28 +704,10 @@
         html += '<a href="' + file.viewUrl + '" target="_blank" rel="noopener" class="file-drive-badge">View in Drive</a>';
         html += '</div>';
 
-      } else if (isImage && file.dataUrl) {
-        // ---- Base64 image fallback ----
-        html += '<div class="file-preview-item">';
-        html += '<a href="' + file.dataUrl + '" target="_blank" download="' + escapeHtml(file.name) + '">';
-        html += '<img class="file-preview-thumb" src="' + file.dataUrl + '" alt="' + escapeHtml(file.name) + '">';
-        html += '</a>';
-        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
-        html += '</div>';
-
-      } else if (file.dataUrl) {
-        // ---- Base64 document fallback ----
-        html += '<div class="file-preview-item file-preview-doc">';
-        html += '<a href="' + file.dataUrl + '" download="' + escapeHtml(file.name) + '" class="file-preview-download">';
-        html += '<span class="file-doc-icon">' + (isPdf ? '&#128196;' : '&#128190;') + '</span>';
-        html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
-        html += '</a>';
-        html += '</div>';
-
       } else {
-        // ---- Name only (no data at all) ----
+        // ---- Name only (Drive link not available) ----
         html += '<div class="file-preview-item file-preview-doc">';
-        html += '<span class="file-doc-icon">&#128190;</span>';
+        html += '<span class="file-doc-icon">' + (isPdf ? '&#128196;' : '&#128190;') + '</span>';
         html += '<span class="file-preview-name">' + escapeHtml(file.name) + '</span>';
         html += '</div>';
       }

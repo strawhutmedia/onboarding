@@ -477,6 +477,17 @@ textarea.sub-field-input {
   background: rgba(26, 115, 232, 0.16);
 }
 
+/* ---- Loading / status messages ---- */
+.loading-msg {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--gray-400);
+  font-size: 14px;
+}
+.status-msg-info { color: var(--gray-400); }
+.status-msg-success { color: #16a34a; }
+.status-msg-error { color: #dc2626; }
+
 /* ---- Empty state ---- */
 .empty-state {
   text-align: center;
