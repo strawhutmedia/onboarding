@@ -704,6 +704,70 @@
     return values;
   }
 
+  // ---- File conversion helper ----
+  function filesToBase64(files) {
+    return Promise.all(files.map(function (f) {
+      return new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          resolve({ name: f.name, type: f.type, size: f.size, dataUrl: reader.result });
+        };
+        reader.onerror = function () {
+          resolve({ name: f.name, type: f.type, size: f.size, dataUrl: null });
+        };
+        reader.readAsDataURL(f);
+      });
+    }));
+  }
+
+  // ---- Google Drive upload ----
+  function uploadToDrive(base64Files, category) {
+    var endpoint = (typeof SHM_UPLOAD_ENDPOINT !== "undefined") ? SHM_UPLOAD_ENDPOINT : "";
+    if (!endpoint || base64Files.length === 0) {
+      // No endpoint configured or no files — return files as-is (base64 fallback)
+      return Promise.resolve(base64Files);
+    }
+
+    return fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        company: approvedCompany,
+        category: category,
+        files: base64Files
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (json.success && json.files) {
+        // Merge Drive URLs into file data
+        return base64Files.map(function (f, i) {
+          var driveInfo = json.files[i] || {};
+          return {
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            driveId: driveInfo.driveId || null,
+            viewUrl: driveInfo.viewUrl || null,
+            thumbUrl: driveInfo.thumbUrl || null
+          };
+        });
+      }
+      // If upload failed, flag it and fall back to base64
+      return base64Files.map(function (f) {
+        return { name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl, uploadFailed: true };
+      });
+    })
+    .catch(function (err) {
+      // Network error — flag it and fall back to base64
+      console.error("Drive upload failed for category '" + category + "':", err);
+      var fallback = base64Files.map(function (f) {
+        return { name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl, uploadFailed: true };
+      });
+      return fallback;
+    });
+  }
+
   // ---- Submit ----
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -714,48 +778,101 @@
     }
     confirmBox.closest(".checkbox-label").style.outline = "none";
 
-    // Mark all sections as completed
-    for (var i = 1; i <= totalSections; i++) {
-      completedSections[i] = true;
-    }
-    updateSidebar();
-    updateProgress();
+    // Disable submit to prevent double-click
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
 
-    var data = getFormData();
-    data.company = approvedCompany;
-    data.submittedAt = new Date().toISOString();
-    data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
-    data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
-    data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
-    data.musicFiles = uploadedFiles.music.map(function (f) { return f.name; });
+    // Convert all uploaded files to base64 first
+    Promise.all([
+      filesToBase64(uploadedFiles.brand),
+      filesToBase64(uploadedFiles.logo),
+      filesToBase64(uploadedFiles.inspo),
+      filesToBase64(uploadedFiles.music)
+    ]).then(function (base64Results) {
+      // Upload each category to Google Drive
+      return Promise.all([
+        uploadToDrive(base64Results[0], "brand-guidelines"),
+        uploadToDrive(base64Results[1], "logos"),
+        uploadToDrive(base64Results[2], "inspiration"),
+        uploadToDrive(base64Results[3], "music")
+      ]);
+    }).then(function (results) {
+      // Mark all sections as completed
+      for (var i = 1; i <= totalSections; i++) {
+        completedSections[i] = true;
+      }
+      updateSidebar();
+      updateProgress();
 
-    // Save submission to localStorage for admin portal
-    saveSubmission(data);
+      var data = getFormData();
+      data.company = approvedCompany;
+      data.submittedAt = new Date().toISOString();
 
-    // Send email notification via FormSubmit.co
-    sendEmailNotification(data);
+      // Store file data (with Drive URLs if available, or base64 fallback)
+      data.brandFilesData = results[0];
+      data.logoFilesData = results[1];
+      data.inspoFilesData = results[2];
+      data.musicFilesData = results[3];
 
-    // Clear the draft since form is submitted
-    clearFormDraft();
+      // Also store name-only arrays for backward compat / email
+      data.brandFiles = uploadedFiles.brand.map(function (f) { return f.name; });
+      data.logoFiles = uploadedFiles.logo.map(function (f) { return f.name; });
+      data.inspoFiles = uploadedFiles.inspo.map(function (f) { return f.name; });
+      data.musicFiles = uploadedFiles.music.map(function (f) { return f.name; });
 
-    // Show success screen
-    switchScreen(successScreen);
+      // Save submission to Google Sheets backend
+      saveSubmission(data);
+
+      // Send email notification via FormSubmit.co
+      sendEmailNotification(data);
+
+      // Clear the draft since form is submitted
+      clearFormDraft();
+
+      // Check if any file uploads failed
+      var allFiles = [].concat(results[0], results[1], results[2], results[3]);
+      var anyFailed = allFiles.some(function (f) { return f && f.uploadFailed; });
+      if (anyFailed) {
+        var warning = document.createElement("div");
+        warning.className = "upload-warning";
+        warning.style.cssText = "background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 16px;border-radius:8px;margin:16px 0;font-size:14px;";
+        warning.innerHTML = "<strong>Note:</strong> Some files could not be uploaded to Google Drive. Your form was still submitted successfully. Please email your files directly to <a href='mailto:onboarding@strawhutmedia.com'>onboarding@strawhutmedia.com</a>.";
+        successScreen.insertBefore(warning, successScreen.children[1] || null);
+      }
+
+      // Show success screen
+      switchScreen(successScreen);
+    });
   });
 
-  // ---- Save submission to localStorage ----
+  // ---- Save submission to Google Sheets backend ----
   function saveSubmission(data) {
-    try {
-      var SUBS_KEY = "shm_submissions";
-      var existing = [];
-      var stored = localStorage.getItem(SUBS_KEY);
-      if (stored) {
-        existing = JSON.parse(stored);
-        if (!Array.isArray(existing)) existing = [];
-      }
-      existing.push(data);
-      localStorage.setItem(SUBS_KEY, JSON.stringify(existing));
-    } catch (e) {
-      console.warn("Could not save submission to localStorage:", e);
+    var endpoint = (typeof SHM_UPLOAD_ENDPOINT !== "undefined") ? SHM_UPLOAD_ENDPOINT : "";
+    if (endpoint) {
+      // Strip base64 dataUrl from file data before saving (too large for Sheets)
+      var cleanData = JSON.parse(JSON.stringify(data));
+      ["brandFilesData", "logoFilesData", "inspoFilesData", "musicFilesData"].forEach(function (key) {
+        if (cleanData[key] && Array.isArray(cleanData[key])) {
+          cleanData[key] = cleanData[key].map(function (f) {
+            return { name: f.name, type: f.type, size: f.size, driveId: f.driveId, viewUrl: f.viewUrl, thumbUrl: f.thumbUrl };
+          });
+        }
+      });
+
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "saveSubmission", data: cleanData })
+      }).then(function (res) { return res.json(); })
+        .then(function (json) {
+          if (json.success) {
+            console.log("Submission saved to backend, ID:", json.id);
+          } else {
+            console.warn("Backend save failed:", json.error);
+          }
+        }).catch(function (err) {
+          console.warn("Could not save submission to backend:", err);
+        });
     }
   }
 
