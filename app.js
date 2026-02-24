@@ -730,7 +730,7 @@
 
     return fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
         company: approvedCompany,
         category: category,
@@ -861,7 +861,7 @@
 
       fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "saveSubmission", data: cleanData })
       }).then(function (res) { return res.json(); })
         .then(function (json) {

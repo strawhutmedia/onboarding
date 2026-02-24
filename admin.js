@@ -71,7 +71,7 @@
   function apiPost(payload) {
     return fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload)
     }).then(function (res) { return res.json(); });
   }
