@@ -71,7 +71,7 @@
   function apiPost(payload) {
     return fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload)
     }).then(function (res) { return res.json(); });
   }
@@ -435,6 +435,8 @@
     body += "Description: " + (data.podcastDescription || "Not provided") + "\n";
     body += "Status: " + (data.podcastStatus || "Not provided") + "\n";
     body += "Brand Status: " + (data.brandStatus || "Not provided") + "\n";
+    if (data.existingPodcastUrl) body += "Existing Podcast URL: " + data.existingPodcastUrl + "\n";
+    if (data.existingPodcastNotes) body += "Existing Podcast Notes: " + data.existingPodcastNotes + "\n";
     body += "Genre: " + (data.podcastGenre || "Not provided") + "\n";
     body += "Format: " + (data.podcastFormat || "Not provided") + "\n";
     body += "Target Audience: " + (data.targetAudience || "Not provided") + "\n\n";
@@ -488,7 +490,8 @@
     body += "Host(s): " + (data.hostsInfo || "Not provided") + "\n";
     body += "Guests: " + (data.hasGuests || "Not provided") + "\n";
     body += "Video: " + (data.isVideo || "Not provided") + "\n";
-    body += "Launch Date: " + (data.launchDate || "Not provided") + "\n\n";
+    body += "Launch Date: " + (data.launchDate || "Not provided") + "\n";
+    body += "Logistics Notes: " + (data.logisticsNotes || "Not provided") + "\n\n";
 
     body += "--- MARKETING & LAUNCH ---\n";
     body += "Launch Episodes: " + (data.launchEpisodes || "Not provided") + "\n";
@@ -592,6 +595,8 @@
       ["Description", "podcastDescription", sub.podcastDescription, true],
       ["Status", "podcastStatus", sub.podcastStatus],
       ["Brand Status", "brandStatus", sub.brandStatus],
+      ["Existing Podcast URL", "existingPodcastUrl", sub.existingPodcastUrl],
+      ["Existing Podcast Notes", "existingPodcastNotes", sub.existingPodcastNotes, true],
       ["Genre", "podcastGenre", sub.podcastGenre],
       ["Format", "podcastFormat", sub.podcastFormat],
       ["Target Audience", "targetAudience", sub.targetAudience, true]
@@ -647,7 +652,8 @@
       ["Guest Booking", "guestBooking", sub.guestBooking],
       ["Video", "isVideo", sub.isVideo],
       ["Video References", "videoReferences", sub.videoReferences, true],
-      ["Launch Date", "launchDate", sub.launchDate]
+      ["Launch Date", "launchDate", sub.launchDate],
+      ["Logistics Notes", "logisticsNotes", sub.logisticsNotes, true]
     ];
 
     html += sectionBlock("Recording & Logistics", logisticsFields);
